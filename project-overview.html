@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedClinic - סקירת פרויקט</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Heebo', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 50px;
+        }
+
+        header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .tech-stack {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tech-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            color: white;
+            font-size: 0.9rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section h2 span {
+            font-size: 1.8rem;
+        }
+
+        .pages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .page-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .page-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border-color: #667eea;
+        }
+
+        .page-card h3 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+
+        .page-card .route {
+            color: #667eea;
+            font-family: monospace;
+            font-size: 0.85rem;
+            background: #e8ecf4;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        .page-card p {
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .features-list {
+            list-style: none;
+            margin-top: 10px;
+        }
+
+        .features-list li {
+            padding: 5px 0;
+            color: #555;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .features-list li::before {
+            content: "✓";
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .role-section {
+            margin-bottom: 40px;
+        }
+
+        .role-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .role-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .role-icon.patient { background: #e3f2fd; }
+        .role-icon.doctor { background: #e8f5e9; }
+        .role-icon.admin { background: #fff3e0; }
+        .role-icon.public { background: #f3e5f5; }
+
+        .role-title {
+            font-size: 1.3rem;
+            color: #333;
+        }
+
+        .db-schema {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .db-table {
+            background: #f8f9fa;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .db-table-header {
+            background: #667eea;
+            color: white;
+            padding: 10px 15px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .db-table-fields {
+            padding: 10px 15px;
+        }
+
+        .db-field {
+            font-size: 0.8rem;
+            color: #555;
+            padding: 3px 0;
+            font-family: monospace;
+        }
+
+        .architecture {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .architecture {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .arch-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+        }
+
+        .arch-box h4 {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+        }
+
+        .arch-box p {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .stat-card .number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            padding: 30px 0;
+        }
+
+        .flow-step {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            border-radius: 12px;
+            text-align: center;
+            min-width: 150px;
+        }
+
+        .flow-step .icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .flow-step .text {
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        .flow-arrow {
+            font-size: 1.5rem;
+            color: #667eea;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            margin-top: 50px;
+            padding: 20px;
+            opacity: 0.8;
+        }
+
+        .screenshot-placeholder {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 12px;
+            padding: 60px 30px;
+            text-align: center;
+            color: #666;
+            margin-top: 20px;
+        }
+
+        .screenshot-placeholder .icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏥 MedClinic</h1>
+            <p>מערכת ניהול קליניקה רב-רופאית</p>
+            <div class="tech-stack">
+                <span class="tech-badge">Next.js 16</span>
+                <span class="tech-badge">TypeScript</span>
+                <span class="tech-badge">Supabase</span>
+                <span class="tech-badge">Tailwind CSS</span>
+                <span class="tech-badge">Shadcn/ui</span>
+                <span class="tech-badge">Recharts</span>
+                <span class="tech-badge">Zustand</span>
+            </div>
+        </header>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="number">20</div>
+                <div class="label">עמודים</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">8</div>
+                <div class="label">טבלאות DB</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">3</div>
+                <div class="label">סוגי משתמשים</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">10</div>
+                <div class="label">ערים</div>
+            </div>
+        </div>
+
+        <!-- Architecture -->
+        <div class="section">
+            <h2><span>🏗️</span> ארכיטקטורה</h2>
+            <div class="architecture">
+                <div class="arch-box">
+                    <h4>Frontend</h4>
+                    <p>Next.js 16 App Router<br>React Server Components<br>Tailwind + Shadcn/ui</p>
+                </div>
+                <div class="arch-box">
+                    <h4>Backend</h4>
+                    <p>Supabase<br>PostgreSQL<br>Row Level Security</p>
+                </div>
+                <div class="arch-box">
+                    <h4>Auth</h4>
+                    <p>Supabase Auth<br>JWT Tokens<br>Role-based Access</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Booking Flow -->
+        <div class="section">
+            <h2><span>📅</span> תהליך קביעת תור</h2>
+            <div class="flow-diagram">
+                <div class="flow-step">
+                    <div class="icon">🔍</div>
+                    <div class="text">חיפוש רופא</div>
+                </div>
+                <div class="flow-arrow">←</div>
+                <div class="flow-step">
+                    <div class="icon">👨‍⚕️</div>
+                    <div class="text">בחירת רופא</div>
+                </div>
+                <div class="flow-arrow">←</div>
+                <div class="flow-step">
+                    <div class="icon">📍</div>
+                    <div class="text">בחירת מיקום</div>
+                </div>
+                <div class="flow-arrow">←</div>
+                <div class="flow-step">
+                    <div class="icon">📆</div>
+                    <div class="text">בחירת תאריך</div>
+                </div>
+                <div class="flow-arrow">←</div>
+                <div class="flow-step">
+                    <div class="icon">✅</div>
+                    <div class="text">אישור תור</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Public Pages -->
+        <div class="section">
+            <div class="role-section">
+                <div class="role-header">
+                    <div class="role-icon public">🌐</div>
+                    <span class="role-title">דפים ציבוריים</span>
+                </div>
+                <div class="pages-grid">
+                    <div class="page-card">
+                        <h3>דף בית</h3>
+                        <span class="route">/</span>
+                        <p>דף נחיתה ראשי עם הנעה לפעולה</p>
+                        <ul class="features-list">
+                            <li>הצגת יתרונות המערכת</li>
+                            <li>קישור לחיפוש רופאים</li>
+                            <li>קישור להרשמה/התחברות</li>
+                        </ul>
+                    </div>
+                    <div class="page-card">
+                        <h3>רשימת רופאים</h3>
+                        <span class="route">/doctors</span>
+                        <p>חיפוש וסינון רופאים</p>
+                        <ul class="features-list">
+                            <li>סינון לפי התמחות</li>
+                            <li>סינון לפי עיר</li>
+                            <li>חיפוש חופשי</li>
+                        </ul>
+                    </div>
+                    <div class="page-card">
+                        <h3>פרופיל רופא</h3>
+                        <span class="route">/doctors/[id]</span>
+                        <p>פרטי רופא מלאים</p>
+                        <ul class="features-list">
+                            <li>מידע אישי וניסיון</li>
+                            <li>סוגי טיפולים</li>
+                            <li>מיקומי קבלה</li>
+                        </ul>
+                    </div>
+                    <div class="page-card">
+                        <h3>קביעת תור</h3>
+                        <span class="route">/doctors/[id]/book</span>
+                        <p>תהליך קביעת תור</p>
+                        <ul class="features-list">
+                            <li>בחירת מיקום</li>
+                            <li>בחירת תאריך ושעה</li>
+                            <li>סיכום ואישור</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auth Pages -->
+        <div class="section">
+            <div class="role-section">
+                <div class="role-header">
+                    <div class="role-icon public">🔐</div>
+                    <span class="role-title">הרשמה והתחברות</span>
+                </div>
+                <div class="pages-grid">
+                    <div class="page-card">
+                        <h3>התחברות</h3>
+                        <span class="route">/login</span>
+                        <p>כניסה למערכת</p>
+                        <ul class="features-list">
+                            <li>אימייל וסיסמה</li>
+                            <li>שכחתי סיסמה</li>
+                            <li>ניתוב לפי תפקיד</li>
+                        </ul>
+                    </div>
+                    <div class="page-card">
+                        <h3>הרשמה</h3>
+                        <span class="route">/register</span>
+                        <p>יצירת חשבון חדש</p>
+                        <ul class="features-list">
+                            <li>פרטים אישיים</li>
+                            <li>וולידציה עם Zod</li>
+                            <li>הרשמה כמטופל</li>
+                        </ul>
+                    </div>
+                    <div class="page-card">
+                        <h3>שכחתי סיסמה</h3>
+                        <span class="route">/forgot-password</span>
+                        <p>איפוס סיסמה</p>
+                        <ul class="features-list">
+                            <li>שליחת מייל איפוס</li>
+                            <li>Magic Link</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Patient Pages -->
+        <div class="section">
+            <div class="role-section">
+                <div class="role-header">
+                    <div class="role-icon patient">👤</div>
+                    <span class="role-title">אזור מטופל</span>
+                </div>
+                <div class="pages-grid">
+                    <div class="page-card">
+                        <h3>לוח בקרה</h3>
+                        <span class="route">/patient/dashboard</span>
+                        <p>סקירה כללית למטופל</p>
+                        <ul class="features-list">
+                            <li>תורים קרובים</li>
+                            <li>סיכומי טיפולים</li>
+                            <li>פעולות מהירות</li>
+                        </ul>
+                    </div>
+                    <div class="page-card">
+                        <h3>התורים שלי</h3>
+                        <span class="route">/patient/appointments</span>
+                        <p>ניהול תורים</p>
+                        <ul class="features-list">
+                            <li>תורים קרובים</li>
+                            <li>היסטוריית תורים</li>
+                            <li>ביטול תור</li>
+                        </ul>
+                    </div>
+                    <div class="page-card">
+                        <h3>סיכומי טיפולים</h3>
+                        <span class="route">/patient/summaries</span>
+                        <p>צפייה בסיכומים</p>
+                        <ul class="features-list">
+                            <li>אבחנות</li>
+                            <li>המלצות טיפול</li>
+                            <li>מרשמים</li>
+                        </ul>
+                    </div>
+                    <div class="page-card">
+                        <h3>פניות</h3>
+                        <span class="route">/patient/tickets</span>
+                        <p>פתיחת פניות לתמיכה</p>
+                        <ul class="features-list">
+                            <li>פתיחת פנייה חדשה</li>
+                            <li>מעקב סטטוס</li>
+                            <li>היסטוריית פניות</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Doctor Pages -->
+        <div class="section">
+            <div class="role-section">
+                <div class="role-header">
+                    <div class="role-icon doctor">👨‍⚕️</div>
+                    <span class="role-title">אזור רופא</span>
+                </div>
+                <div class="pages-grid">
+                    <div class="page-card">
+                        <h3>לוח בקרה</h3>
+                        <span class="route">/doctor/dashboard</span>
+                        <p>סקירה כללית לרופא</p>
+                        <ul class="features-list">
+                            <li>תורים להיום</li>
+                            <li>גרף תורים שבועי</li>
+                            <li>התפלגות סטטוסים</li>
+                            <li>סטטיסטיקות</li>
+                        </ul>
+                    </div>
+                    <div class="page-card">
+                        <h3>ניהול תורים</h3>
+                        <span class="route">/doctor/appointments</span>
+                        <p>ניהול תורי מטופלים</p>
+                        <ul class="features-list">
+                            <li>אישור/ביטול תורים</li>
+                            <li>סימון כהושלם</li>
+                            <li>פרטי מטופל</li>
+                        </ul>
+                    </div>
+                    <div class="page-card">
+                        <h3>ניהול זמינות</h3>
+                        <span class="route">/doctor/availability</span>
+                        <p>הגדרת שעות קבלה</p>
+                        <ul class="features-list">
+                            <li>הוספת תורים ליום</li>
+                            <li>הוספה לשבוע/חודש</li>
+                            <li>מחיקת תורים</li>
+                        </ul>
+                    </div>
+                    <div class="page-card">
+                        <h3>סיכומי טיפולים</h3>
+                        <span class="route">/doctor/summaries</span>
+                        <p>כתיבת סיכומים</p>
+                        <ul class="features-list">
+                            <li>בחירת מטופל</li>
+                            <li>אבחנה והמלצות</li>
+                            <li>מרשמים</li>
+                        </ul>
+                    </div>
+                    <div class="page-card">
+                        <h3>חיפוש סיכומים</h3>
+                        <span class="route">/doctor/search-summaries</span>
+                        <p>חיפוש Full-Text</p>
+                        <ul class="features-list">
+                            <li>חיפוש בכל השדות</li>
+                            <li>תוצאות מהירות</li>
+                            <li>PostgreSQL tsvector</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Pages -->
+        <div class="section">
+            <div class="role-section">
+                <div class="role-header">
+                    <div class="role-icon admin">👑</div>
+                    <span class="role-title">אזור מנהל</span>
+                </div>
+                <div class="pages-grid">
+                    <div class="page-card">
+                        <h3>לוח בקרה</h3>
+                        <span class="route">/admin/dashboard</span>
+                        <p>סקירת מערכת</p>
+                        <ul class="features-list">
+                            <li>סטטיסטיקות כלליות</li>
+                            <li>מספר משתמשים</li>
+                            <li>פניות פתוחות</li>
+                        </ul>
+                    </div>
+                    <div class="page-card">
+                        <h3>ניהול פניות</h3>
+                        <span class="route">/admin/tickets</span>
+                        <p>טיפול בפניות</p>
+                        <ul class="features-list">
+                            <li>צפייה בפניות</li>
+                            <li>עדכון סטטוס</li>
+                            <li>סינון לפי סטטוס</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Database Schema -->
+        <div class="section">
+            <h2><span>🗄️</span> מבנה בסיס הנתונים</h2>
+            <div class="db-schema">
+                <div class="db-table">
+                    <div class="db-table-header">users</div>
+                    <div class="db-table-fields">
+                        <div class="db-field">id (UUID)</div>
+                        <div class="db-field">email</div>
+                        <div class="db-field">full_name</div>
+                        <div class="db-field">phone</div>
+                        <div class="db-field">role</div>
+                        <div class="db-field">avatar_url</div>
+                    </div>
+                </div>
+                <div class="db-table">
+                    <div class="db-table-header">doctors</div>
+                    <div class="db-table-fields">
+                        <div class="db-field">id (UUID)</div>
+                        <div class="db-field">user_id (FK)</div>
+                        <div class="db-field">specialization</div>
+                        <div class="db-field">license_number</div>
+                        <div class="db-field">years_of_experience</div>
+                        <div class="db-field">consultation_fee</div>
+                    </div>
+                </div>
+                <div class="db-table">
+                    <div class="db-table-header">locations</div>
+                    <div class="db-table-fields">
+                        <div class="db-field">id (UUID)</div>
+                        <div class="db-field">name</div>
+                        <div class="db-field">city</div>
+                        <div class="db-field">address</div>
+                        <div class="db-field">phone</div>
+                    </div>
+                </div>
+                <div class="db-table">
+                    <div class="db-table-header">appointments</div>
+                    <div class="db-table-fields">
+                        <div class="db-field">id (UUID)</div>
+                        <div class="db-field">patient_id (FK)</div>
+                        <div class="db-field">doctor_id (FK)</div>
+                        <div class="db-field">slot_id (FK)</div>
+                        <div class="db-field">status</div>
+                        <div class="db-field">payment_status</div>
+                    </div>
+                </div>
+                <div class="db-table">
+                    <div class="db-table-header">doctor_availability_slots</div>
+                    <div class="db-table-fields">
+                        <div class="db-field">id (UUID)</div>
+                        <div class="db-field">doctor_id (FK)</div>
+                        <div class="db-field">location_id (FK)</div>
+                        <div class="db-field">slot_datetime</div>
+                        <div class="db-field">duration_minutes</div>
+                        <div class="db-field">is_booked</div>
+                    </div>
+                </div>
+                <div class="db-table">
+                    <div class="db-table-header">treatment_summaries</div>
+                    <div class="db-table-fields">
+                        <div class="db-field">id (UUID)</div>
+                        <div class="db-field">doctor_id (FK)</div>
+                        <div class="db-field">patient_id (FK)</div>
+                        <div class="db-field">diagnosis</div>
+                        <div class="db-field">treatment</div>
+                        <div class="db-field">prescription</div>
+                        <div class="db-field">search_vector (tsvector)</div>
+                    </div>
+                </div>
+                <div class="db-table">
+                    <div class="db-table-header">treatment_types</div>
+                    <div class="db-table-fields">
+                        <div class="db-field">id (UUID)</div>
+                        <div class="db-field">doctor_id (FK)</div>
+                        <div class="db-field">name</div>
+                        <div class="db-field">description</div>
+                        <div class="db-field">price</div>
+                        <div class="db-field">duration_minutes</div>
+                    </div>
+                </div>
+                <div class="db-table">
+                    <div class="db-table-header">tickets</div>
+                    <div class="db-table-fields">
+                        <div class="db-field">id (UUID)</div>
+                        <div class="db-field">user_id (FK)</div>
+                        <div class="db-field">subject</div>
+                        <div class="db-field">description</div>
+                        <div class="db-field">status</div>
+                        <div class="db-field">priority</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features -->
+        <div class="section">
+            <h2><span>✨</span> תכונות עיקריות</h2>
+            <div class="pages-grid">
+                <div class="page-card">
+                    <h3>🌐 תמיכה מלאה ב-RTL</h3>
+                    <p>ממשק עברי מלא עם כיווניות נכונה, גופן Heebo ותמיכה בתאריכים בעברית</p>
+                </div>
+                <div class="page-card">
+                    <h3>🔒 אבטחה מתקדמת</h3>
+                    <p>Row Level Security ב-Supabase, הרשאות לפי תפקיד, ו-Middleware להגנה על מסלולים</p>
+                </div>
+                <div class="page-card">
+                    <h3>🔍 חיפוש Full-Text</h3>
+                    <p>חיפוש מהיר בסיכומי טיפולים עם PostgreSQL tsvector ותמיכה בעברית</p>
+                </div>
+                <div class="page-card">
+                    <h3>📊 דשבורדים עם גרפים</h3>
+                    <p>Recharts לתצוגת סטטיסטיקות, גרפי עמודות, ועוגות</p>
+                </div>
+                <div class="page-card">
+                    <h3>📱 עיצוב רספונסיבי</h3>
+                    <p>ממשק מותאם לכל גודל מסך עם Tailwind CSS</p>
+                </div>
+                <div class="page-card">
+                    <h3>⚡ ביצועים מעולים</h3>
+                    <p>Next.js App Router עם Server Components ו-Turbopack</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- How to Run -->
+        <div class="section">
+            <h2><span>🚀</span> הפעלת הפרויקט</h2>
+            <div style="background: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 10px; font-family: monospace; direction: ltr; text-align: left;">
+                <div style="color: #6a9955;"># התקנת תלויות</div>
+                <div>npm install</div>
+                <br>
+                <div style="color: #6a9955;"># הגדרת משתני סביבה</div>
+                <div>cp .env.example .env.local</div>
+                <div style="color: #6a9955;"># ערוך את .env.local עם פרטי Supabase</div>
+                <br>
+                <div style="color: #6a9955;"># הפעלת שרת פיתוח</div>
+                <div>npm run dev</div>
+                <br>
+                <div style="color: #6a9955;"># בניית פרויקט</div>
+                <div>npm run build</div>
+            </div>
+        </div>
+
+        <footer>
+            <p>נבנה עם ❤️ באמצעות Next.js, TypeScript ו-Supabase</p>
+            <p style="margin-top: 10px; font-size: 0.9rem;">MedClinic - מערכת ניהול קליניקה © 2026</p>
+        </footer>
+    </div>
+</body>
+</html>
