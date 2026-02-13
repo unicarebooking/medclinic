@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 const RAG_SERVER_URL = process.env.RAG_SERVER_URL || 'http://localhost:8001'
+const RAG_INTERNAL_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,20 +41,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get Supabase session token to pass to RAG server
-    const { data: { session } } = await supabase.auth.getSession()
-    const accessToken = session?.access_token || ''
-
-    // Call RAG server
+    // Call RAG server - pass doctor_id directly (auth already verified above)
     const ragResponse = await fetch(`${RAG_SERVER_URL}/rag/query`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
+        'X-Internal-Key': RAG_INTERNAL_KEY,
       },
       body: JSON.stringify({
         query: query.trim(),
         top_k: top_k || 10,
+        doctor_id: doctor.id,
       }),
     })
 

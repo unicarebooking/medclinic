@@ -10,23 +10,24 @@ Usage:
 
 Environment Variables:
   SUPABASE_URL          - Supabase project URL
-  SUPABASE_SERVICE_KEY  - Supabase service role key
-  SUPABASE_JWT_SECRET   - Supabase JWT secret for token verification
+  SUPABASE_SERVICE_KEY  - Supabase service role key (also used as internal API key)
   OLLAMA_MODEL          - Ollama model name (default: llama3.1:8b)
 """
 
 import os
 import logging
 from datetime import datetime
-from typing import Optional
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Depends
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from jose import jwt, JWTError
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from supabase import create_client, Client
 import ollama
+
+# Load .env file
+load_dotenv(Path(__file__).parent / ".env")
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -35,12 +36,11 @@ logger = logging.getLogger("rag_server")
 # Environment
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
-SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
 
-if not SUPABASE_URL or not SUPABASE_SERVICE_KEY or not SUPABASE_JWT_SECRET:
+if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
     logger.warning(
-        "Missing environment variables! Set SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_JWT_SECRET"
+        "Missing environment variables! Set SUPABASE_URL, SUPABASE_SERVICE_KEY"
     )
 
 # Supabase client (service role - bypasses RLS for fetching data)
@@ -57,14 +57,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Auth
-security = HTTPBearer()
-
 
 # Models
 class RAGQueryRequest(BaseModel):
     query: str
     top_k: int = 10
+    doctor_id: str
 
 
 class RAGSource(BaseModel):
@@ -79,34 +77,11 @@ class RAGQueryResponse(BaseModel):
     model: str
 
 
-# Auth helper
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
-    """Verify Supabase JWT and return user_id."""
-    token = credentials.credentials
-    try:
-        payload = jwt.decode(
-            token,
-            SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token: no user ID")
-        return user_id
-    except JWTError as e:
-        logger.error(f"JWT verification failed: {e}")
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
-
-def get_doctor_id(user_id: str) -> str:
-    """Get doctor_id for the authenticated user."""
-    result = supabase.table("doctors").select("id").eq("user_id", user_id).execute()
-
-    if not result.data:
-        raise HTTPException(status_code=403, detail="User is not a doctor")
-
-    return result.data[0]["id"]
+def verify_internal_key(request: Request) -> None:
+    """Verify the internal API key from the Next.js server."""
+    key = request.headers.get("X-Internal-Key", "")
+    if not key or key != SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 def fetch_summaries(doctor_id: str, top_k: int) -> list[dict]:
@@ -177,7 +152,8 @@ def query_ollama(query: str, context: str) -> str:
 
 תשובה:"""
 
-    response = ollama.generate(
+    client = ollama.Client()
+    response = client.generate(
         model=OLLAMA_MODEL,
         prompt=prompt,
         options={
@@ -186,7 +162,7 @@ def query_ollama(query: str, context: str) -> str:
         },
     )
 
-    return response["response"].strip()
+    return response.response.strip()
 
 
 # Routes
@@ -197,12 +173,12 @@ async def health_check():
 
 
 @app.post("/rag/query", response_model=RAGQueryResponse)
-async def rag_query(request: RAGQueryRequest, user_id: str = Depends(verify_token)):
+async def rag_query(request: RAGQueryRequest, raw_request: Request):
     """Process a RAG query against the doctor's treatment summaries."""
-    logger.info(f"RAG query from user {user_id}: {request.query[:100]}")
+    verify_internal_key(raw_request)
 
-    # Get doctor_id - ensures only doctor's own data is accessed
-    doctor_id = get_doctor_id(user_id)
+    doctor_id = request.doctor_id
+    logger.info(f"RAG query for doctor {doctor_id}: {request.query[:100]}")
 
     # Fetch summaries for THIS doctor only
     summaries = fetch_summaries(doctor_id, request.top_k)
