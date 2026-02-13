@@ -27,6 +27,7 @@ const doctorLinks: SidebarLink[] = [
   { href: '/doctor/summaries', label: 'סיכומי טיפולים', icon: '📋' },
   { href: '/doctor/search-summaries', label: 'חיפוש סיכומים', icon: '🔍' },
   { href: '/doctor/transcriptions', label: 'תמלול שיחות', icon: '🎙️' },
+  { href: '/doctor/rag-search', label: 'חיפוש חכם', icon: '🤖' },
 ]
 
 const adminLinks: SidebarLink[] = [
