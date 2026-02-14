@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       .from('doctors')
       .select('id')
       .eq('user_id', user.id)
-      .single()
+      .single() as { data: { id: string } | null }
 
     if (!doctor) {
       return NextResponse.json(
