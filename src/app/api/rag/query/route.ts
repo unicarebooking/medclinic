@@ -19,13 +19,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Get doctor_id
-    const { data: doctor } = await supabase
+    const doctorResult = await supabase
       .from('doctors')
       .select('id')
       .eq('user_id', user.id)
-      .single() as { data: { id: string } | null }
+      .single()
 
-    if (!doctor) {
+    const doctorId: string | undefined = (doctorResult.data as { id: string } | null)?.id
+
+    if (!doctorId) {
       return NextResponse.json(
         { error: 'משתמש זה אינו רופא.' },
         { status: 403 }
@@ -51,7 +53,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         query: query.trim(),
         top_k: top_k || 10,
-        doctor_id: doctor.id,
+        doctor_id: doctorId,
       }),
     })
 
