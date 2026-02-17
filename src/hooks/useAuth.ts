@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAuthStore } from '@/stores/auth-store'
 import { createClient } from '@/lib/supabase/client'
 
@@ -16,10 +16,15 @@ export function useAuth() {
     fetchUser,
   } = useAuthStore()
 
+  const initialized = useRef(false)
+
   useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
+
     const supabase = createClient()
 
-    // Fetch user on mount
+    // Fetch user on mount (only once)
     fetchUser()
 
     // Listen for auth changes

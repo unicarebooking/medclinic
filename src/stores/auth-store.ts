@@ -97,7 +97,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Auth timeout')), 5000)
+        setTimeout(() => reject(new Error('Auth timeout')), 15000)
       )
 
       const authPromise = supabase.auth.getUser()
