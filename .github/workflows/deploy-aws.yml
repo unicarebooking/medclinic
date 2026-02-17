@@ -6,7 +6,7 @@ on:
 
 env:
   AWS_REGION: il-central-1
-  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION || 'il-central-1' }}.amazonaws.com
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.il-central-1.amazonaws.com
   ECS_CLUSTER: medclinic-cluster
 
 jobs:
@@ -52,7 +52,6 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build, tag, and push image
-        working-directory: medclinic
         env:
           IMAGE_TAG: ${{ github.sha }}
           ECR_REPO: ${{ matrix.ecr_repo }}
