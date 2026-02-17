@@ -35,6 +35,10 @@ jobs:
             context: ./rag_server
             dockerfile: Dockerfile
             ecr_repo: medclinic-rag
+          - service: ollama
+            context: ./ollama
+            dockerfile: Dockerfile
+            ecr_repo: medclinic-ollama
 
     steps:
       - name: Checkout code
