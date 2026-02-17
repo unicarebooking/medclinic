@@ -1,0 +1,104 @@
+name: Deploy to AWS ECS
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: il-central-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION || 'il-central-1' }}.amazonaws.com
+  ECS_CLUSTER: medclinic-cluster
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Build & Push Docker images to ECR
+  # ──────────────────────────────────────────────
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    strategy:
+      matrix:
+        include:
+          - service: web
+            context: .
+            dockerfile: Dockerfile
+            ecr_repo: medclinic-web
+          - service: transcription
+            context: ./services/transcription
+            dockerfile: Dockerfile
+            ecr_repo: medclinic-transcription
+          - service: rag
+            context: ./rag_server
+            dockerfile: Dockerfile
+            ecr_repo: medclinic-rag
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image
+        working-directory: medclinic
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          ECR_REPO: ${{ matrix.ecr_repo }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
+            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
+            -t $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPO:latest \
+            -f ${{ matrix.dockerfile }} \
+            ${{ matrix.context }}
+          docker push $ECR_REGISTRY/$ECR_REPO --all-tags
+
+  # ──────────────────────────────────────────────
+  # Deploy to ECS
+  # ──────────────────────────────────────────────
+  deploy:
+    name: Deploy to ECS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update ECS services
+        run: |
+          for SERVICE in medclinic-web medclinic-transcription medclinic-rag; do
+            echo "Updating $SERVICE..."
+            aws ecs update-service \
+              --cluster $ECS_CLUSTER \
+              --service $SERVICE \
+              --force-new-deployment \
+              --no-cli-pager
+          done
+
+      - name: Wait for services to stabilize
+        run: |
+          echo "Waiting for services to stabilize..."
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services medclinic-web medclinic-transcription medclinic-rag
+          echo "All services are stable!"

@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    depends_on:
+      - transcription
+      - rag
+
+  transcription:
+    build:
+      context: ./services/transcription
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - transcription-uploads:/app/uploads
+      - transcription-outputs:/app/outputs
+
+  rag:
+    build:
+      context: ./rag_server
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:8b}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+
+volumes:
+  transcription-uploads:
+  transcription-outputs:
