@@ -63,9 +63,10 @@ jobs:
             --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
             -t $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG \
             -t $ECR_REGISTRY/$ECR_REPO:latest \
-            -f ${{ matrix.dockerfile }} \
+            -f ${{ matrix.context }}/Dockerfile \
             ${{ matrix.context }}
-          docker push $ECR_REGISTRY/$ECR_REPO --all-tags
+          docker push $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPO:latest
 
   # ──────────────────────────────────────────────
   # Deploy to ECS
