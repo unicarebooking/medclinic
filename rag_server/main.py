@@ -3,7 +3,7 @@ RAG Server - Medical Treatment Summary Search with Ollama
 
 Usage:
   1. Install Ollama: https://ollama.com
-  2. Pull model: ollama pull llama3.1:8b
+  2. Pull model: ollama pull llama3.2:3b
   3. Install deps: pip install -r requirements.txt
   4. Set environment variables (see below)
   5. Run: uvicorn main:app --host 0.0.0.0 --port 8001
@@ -11,7 +11,7 @@ Usage:
 Environment Variables:
   SUPABASE_URL          - Supabase project URL
   SUPABASE_SERVICE_KEY  - Supabase service role key (also used as internal API key)
-  OLLAMA_MODEL          - Ollama model name (default: llama3.1:8b)
+  OLLAMA_MODEL          - Ollama model name (default: llama3.2:3b)
 """
 
 import os
@@ -36,7 +36,7 @@ logger = logging.getLogger("rag_server")
 # Environment
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
     logger.warning(
