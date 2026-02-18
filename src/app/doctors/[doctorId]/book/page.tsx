@@ -221,6 +221,17 @@ export default function BookingPage({ params }: BookingPageProps) {
       return
     }
 
+    // Index patient info in RAG vector store (fire-and-forget)
+    fetch('/api/rag/index', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source_table: 'users',
+        source_id: user.id,
+        doctor_id: doctorId,
+      }),
+    }).catch(() => {})
+
     // Mark slot as booked
     await (supabase as any)
       .from('doctor_availability_slots')

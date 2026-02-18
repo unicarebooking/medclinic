@@ -176,14 +176,26 @@ export default function DoctorTranscriptionsPage() {
     if (!doctorId) return
     const supabase = createClient() as any
 
-    await supabase.from('transcriptions').insert({
+    const { data: insertedTranscription } = await supabase.from('transcriptions').insert({
       doctor_id: doctorId,
       patient_id: selectedPatient && selectedPatient !== 'none' ? selectedPatient : null,
       original_filename: currentJob?.originalFilename || '',
       transcription_text: jobData.transcription_text,
       status: 'completed',
       duration_seconds: jobData.duration_seconds ? Math.round(jobData.duration_seconds) : null,
-    })
+    }).select('id').single()
+
+    // Index in RAG vector store (fire-and-forget)
+    if (insertedTranscription?.id) {
+      fetch('/api/rag/index', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_table: 'transcriptions',
+          source_id: insertedTranscription.id,
+        }),
+      }).catch(() => {})
+    }
 
     fetchSavedTranscriptions()
   }

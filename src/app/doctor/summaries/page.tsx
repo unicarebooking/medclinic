@@ -159,7 +159,7 @@ export default function DoctorSummariesPage() {
 
     const supabase = createClient() as any
 
-    const { error } = await supabase.from('treatment_summaries').insert({
+    const { data: insertedSummary, error } = await supabase.from('treatment_summaries').insert({
       appointment_id: selectedAppointment.id,
       doctor_id: doctorId,
       patient_id: (selectedAppointment.patient as any).id,
@@ -168,13 +168,25 @@ export default function DoctorSummariesPage() {
       prescription: values.prescription || null,
       follow_up_required: values.follow_up_required,
       follow_up_date: values.follow_up_date?.toISOString().split('T')[0] || null,
-    })
+    }).select('id').single()
 
     if (error) {
       toast.error('שגיאה בשמירת הסיכום')
       console.error(error)
     } else {
       toast.success('הסיכום נשמר בהצלחה')
+
+      // Index in RAG vector store (fire-and-forget)
+      if (insertedSummary?.id) {
+        fetch('/api/rag/index', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source_table: 'treatment_summaries',
+            source_id: insertedSummary.id,
+          }),
+        }).catch(() => {})
+      }
 
       // Update appointment status to completed if not already
       if (selectedAppointment.status !== 'completed') {

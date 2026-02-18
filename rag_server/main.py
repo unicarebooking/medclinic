@@ -1,17 +1,14 @@
 """
-RAG Server - Medical Treatment Summary Search with Ollama
+RAG Server - Medical Document Search with Ollama + pgvector
 
-Usage:
-  1. Install Ollama: https://ollama.com
-  2. Pull model: ollama pull llama3.2:3b
-  3. Install deps: pip install -r requirements.txt
-  4. Set environment variables (see below)
-  5. Run: uvicorn main:app --host 0.0.0.0 --port 8001
+Uses vector embeddings (nomic-embed-text) for semantic search
+and Ollama LLM (llama3.2:3b) for answer generation.
 
 Environment Variables:
-  SUPABASE_URL          - Supabase project URL
-  SUPABASE_SERVICE_KEY  - Supabase service role key (also used as internal API key)
-  OLLAMA_MODEL          - Ollama model name (default: llama3.2:3b)
+  SUPABASE_URL              - Supabase project URL
+  SUPABASE_SERVICE_KEY      - Supabase service role key (also used as internal API key)
+  OLLAMA_MODEL              - Ollama LLM model (default: llama3.2:3b)
+  OLLAMA_EMBEDDING_MODEL    - Ollama embedding model (default: nomic-embed-text)
 """
 
 import os
@@ -20,11 +17,19 @@ from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
 import ollama
+
+from embedder import embed_single
+from indexer import (
+    index_treatment_summary,
+    index_transcription,
+    index_patient_for_doctor,
+    reindex_all,
+)
 
 # Load .env file
 load_dotenv(Path(__file__).parent / ".env")
@@ -47,7 +52,7 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 # FastAPI app
-app = FastAPI(title="MedClinic RAG Server", version="1.0.0")
+app = FastAPI(title="MedClinic RAG Server", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -77,6 +82,23 @@ class RAGQueryResponse(BaseModel):
     model: str
 
 
+class IndexRequest(BaseModel):
+    source_table: str
+    source_id: str
+    doctor_id: str | None = None
+    patient_id: str | None = None
+
+
+class IndexResponse(BaseModel):
+    status: str
+    chunks_created: int
+
+
+class ReindexResponse(BaseModel):
+    status: str
+    stats: dict
+
+
 def verify_internal_key(request: Request) -> None:
     """Verify the internal API key from the Next.js server."""
     key = request.headers.get("X-Internal-Key", "")
@@ -84,60 +106,60 @@ def verify_internal_key(request: Request) -> None:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-def fetch_summaries(doctor_id: str, top_k: int) -> list[dict]:
-    """Fetch treatment summaries for a specific doctor only."""
-    result = (
-        supabase.table("treatment_summaries")
-        .select(
-            "id, diagnosis, treatment_notes, prescription, follow_up_required, follow_up_date, created_at, "
-            "patient:users!treatment_summaries_patient_id_fkey(full_name)"
-        )
-        .eq("doctor_id", doctor_id)
-        .order("created_at", desc=True)
-        .limit(top_k)
-        .execute()
-    )
+def vector_search(query: str, doctor_id: str, top_k: int = 10) -> list[dict]:
+    """Embed the query and search document_chunks via pgvector."""
+    query_embedding = embed_single(query)
+
+    result = supabase.rpc(
+        "match_document_chunks",
+        {
+            "query_embedding": query_embedding,
+            "match_count": top_k,
+            "filter_doctor_id": doctor_id,
+            "similarity_threshold": 0.3,
+        },
+    ).execute()
 
     return result.data or []
 
 
-def build_context(summaries: list[dict]) -> tuple[str, list[RAGSource]]:
-    """Build context string from summaries and extract sources."""
+def build_context_from_chunks(chunks: list[dict]) -> tuple[str, list[RAGSource]]:
+    """Build context string and source list from vector search results."""
     context_parts = []
-    sources = []
+    sources: list[RAGSource] = []
+    seen_sources: set[str] = set()
 
-    for i, summary in enumerate(summaries, 1):
-        patient_name = "לא ידוע"
-        if summary.get("patient") and isinstance(summary["patient"], dict):
-            patient_name = summary["patient"].get("full_name", "לא ידוע")
+    for i, chunk in enumerate(chunks, 1):
+        meta = chunk.get("metadata") or {}
+        patient_name = meta.get("patient_name", "לא ידוע")
+        date_str = meta.get("date", "")
+        chunk_type = meta.get("type", "")
 
-        date_str = ""
-        if summary.get("created_at"):
-            try:
-                dt = datetime.fromisoformat(summary["created_at"].replace("Z", "+00:00"))
-                date_str = dt.strftime("%d/%m/%Y")
-            except (ValueError, AttributeError):
-                date_str = summary["created_at"][:10]
+        type_label = {
+            "treatment_summary": "סיכום טיפול",
+            "transcription": "תמלול",
+            "patient_info": "פרטי מטופל",
+        }.get(chunk_type, "מסמך")
 
         context_parts.append(
-            f"--- סיכום #{i} ---\n"
+            f"--- {type_label} #{i} (רלוונטיות: {chunk.get('similarity', 0):.2f}) ---\n"
             f"מטופל: {patient_name}\n"
             f"תאריך: {date_str}\n"
-            f"אבחנה: {summary.get('diagnosis', '')}\n"
-            f"טיפול: {summary.get('treatment_notes', '')}\n"
-            f"מרשם: {summary.get('prescription', 'אין')}\n"
-            f"מעקב נדרש: {'כן' if summary.get('follow_up_required') else 'לא'}\n"
-            f"תאריך מעקב: {summary.get('follow_up_date') or 'לא נקבע'}\n"
+            f"{chunk['content']}\n"
         )
 
-        sources.append(RAGSource(patient_name=patient_name, date=date_str))
+        # Deduplicate sources by source_id
+        source_key = chunk.get("source_id", str(i))
+        if source_key not in seen_sources:
+            seen_sources.add(source_key)
+            sources.append(RAGSource(patient_name=patient_name, date=date_str))
 
     return "\n".join(context_parts), sources
 
 
 def query_ollama(query: str, context: str) -> str:
     """Send query to Ollama with medical context."""
-    prompt = f"""אתה עוזר רפואי חכם. ענה על השאלה בהתבסס על סיכומי הטיפול הבאים:
+    prompt = f"""אתה עוזר רפואי חכם. ענה על השאלה בהתבסס על המידע הרפואי הבא:
 
 {context}
 
@@ -145,7 +167,7 @@ def query_ollama(query: str, context: str) -> str:
 
 חוקים:
 1. ענה רק בעברית
-2. התבסס רק על המידע בסיכומים
+2. התבסס רק על המידע שסופק
 3. אם אין מידע - אמר זאת
 4. ציין שמות מטופלים ותאריכים רלוונטיים
 5. תשובה קצרה ומדויקת (2-4 משפטים)
@@ -169,32 +191,39 @@ def query_ollama(query: str, context: str) -> str:
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "ok", "model": OLLAMA_MODEL}
+    return {"status": "ok", "model": OLLAMA_MODEL, "version": "2.0.0-vector"}
 
 
 @app.post("/rag/query", response_model=RAGQueryResponse)
 async def rag_query(request: RAGQueryRequest, raw_request: Request):
-    """Process a RAG query against the doctor's treatment summaries."""
+    """Process a RAG query using vector similarity search."""
     verify_internal_key(raw_request)
 
     doctor_id = request.doctor_id
     logger.info(f"RAG query for doctor {doctor_id}: {request.query[:100]}")
 
-    # Fetch summaries for THIS doctor only
-    summaries = fetch_summaries(doctor_id, request.top_k)
+    # Vector search for relevant chunks
+    try:
+        chunks = vector_search(request.query, doctor_id, request.top_k)
+    except Exception as e:
+        logger.error(f"Vector search error: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="שגיאה בחיפוש וקטורי. ודא ש-Ollama פעיל ושמודל nomic-embed-text הותקן.",
+        )
 
-    if not summaries:
+    if not chunks:
         return RAGQueryResponse(
-            answer="לא נמצאו סיכומי טיפולים. יש ליצור סיכומים לפני שניתן לחפש בהם.",
+            answer="לא נמצא מידע רלוונטי. יש ליצור סיכומי טיפול או תמלולים לפני שניתן לחפש בהם.",
             sources=[],
             total_summaries_scanned=0,
             model=OLLAMA_MODEL,
         )
 
-    # Build context from summaries
-    context, sources = build_context(summaries)
+    # Build context from chunks
+    context, sources = build_context_from_chunks(chunks)
 
-    # Query Ollama
+    # Query Ollama LLM
     try:
         answer = query_ollama(request.query, context)
     except Exception as e:
@@ -209,9 +238,56 @@ async def rag_query(request: RAGQueryRequest, raw_request: Request):
     return RAGQueryResponse(
         answer=answer,
         sources=sources,
-        total_summaries_scanned=len(summaries),
+        total_summaries_scanned=len(chunks),
         model=OLLAMA_MODEL,
     )
+
+
+@app.post("/rag/index", response_model=IndexResponse)
+async def index_document(request: IndexRequest, raw_request: Request):
+    """Index a single document into the vector store."""
+    verify_internal_key(raw_request)
+
+    source_table = request.source_table
+    source_id = request.source_id
+
+    logger.info(f"Indexing {source_table}/{source_id}")
+
+    try:
+        if source_table == "treatment_summaries":
+            count = index_treatment_summary(supabase, source_id)
+        elif source_table == "transcriptions":
+            count = index_transcription(supabase, source_id)
+        elif source_table == "users":
+            if not request.doctor_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="doctor_id is required for patient indexing",
+                )
+            count = index_patient_for_doctor(supabase, source_id, request.doctor_id)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown source_table: {source_table}",
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Indexing error for {source_table}/{source_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return IndexResponse(status="ok", chunks_created=count)
+
+
+@app.post("/rag/reindex-all", response_model=ReindexResponse)
+async def reindex_all_endpoint(raw_request: Request, background_tasks: BackgroundTasks):
+    """Reindex all existing data. Runs in background for large datasets."""
+    verify_internal_key(raw_request)
+
+    logger.info("Starting full reindex...")
+    stats = reindex_all(supabase)
+
+    return ReindexResponse(status="ok", stats=stats)
 
 
 if __name__ == "__main__":
