@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+export const maxDuration = 600
+
 const RAG_SERVER_URL = process.env.RAG_SERVER_URL || 'http://localhost:8001'
 const RAG_INTERNAL_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
@@ -44,6 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call RAG server - pass doctor_id directly (auth already verified above)
+    // 10 min timeout - Ollama on CPU can take several minutes
     const ragResponse = await fetch(`${RAG_SERVER_URL}/rag/query`, {
       method: 'POST',
       headers: {
@@ -55,6 +58,7 @@ export async function POST(request: NextRequest) {
         top_k: top_k || 10,
         doctor_id: doctorId,
       }),
+      signal: AbortSignal.timeout(600000),
     })
 
     if (!ragResponse.ok) {
