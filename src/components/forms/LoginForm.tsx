@@ -7,6 +7,7 @@ import * as z from 'zod'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -52,7 +53,16 @@ export function LoginForm() {
       return
     }
 
-    router.push('/patient/dashboard')
+    // Redirect based on user role
+    const { user } = useAuthStore.getState()
+    let redirectPath = '/patient/dashboard'
+    if (user?.role === 'doctor') {
+      redirectPath = '/doctor/dashboard'
+    } else if (user?.role === 'admin') {
+      redirectPath = '/admin/dashboard'
+    }
+
+    router.push(redirectPath)
     router.refresh()
   }
 

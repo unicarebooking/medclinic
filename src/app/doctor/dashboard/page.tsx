@@ -225,7 +225,38 @@ export default function DoctorDashboard() {
     fetchData()
   }, [doctorId])
 
-  if (authLoading || isLoading) {
+  if (authLoading) {
+    return (
+      <div className="p-8 space-y-6">
+        <Skeleton className="h-10 w-48" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-muted-foreground mb-4">לא ניתן לטעון את פרטי המשתמש</p>
+        <Button onClick={() => window.location.reload()} variant="outline" className="ml-2">
+          רענן דף
+        </Button>
+        <Link href="/login">
+          <Button>התחבר מחדש</Button>
+        </Link>
+      </div>
+    )
+  }
+
+  if (isLoading) {
     return (
       <div className="p-8 space-y-6">
         <Skeleton className="h-10 w-48" />

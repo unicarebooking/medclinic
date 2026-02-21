@@ -30,8 +30,12 @@ export function useAuth() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event) => {
+        console.log('[auth] onAuthStateChange:', event)
         if (event === 'SIGNED_IN') {
-          await fetchUser()
+          // Only fetch if we don't already have a user (avoid duplicate during login flow)
+          if (!useAuthStore.getState().user) {
+            await fetchUser()
+          }
         } else if (event === 'SIGNED_OUT') {
           useAuthStore.getState().setUser(null)
         }

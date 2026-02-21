@@ -35,16 +35,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (email, password) => {
     const supabase = createClient()
 
+    console.log('[auth] login started for:', email)
+    const loginStart = Date.now()
     const { error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
+    console.log('[auth] signInWithPassword took', Date.now() - loginStart, 'ms, error:', authError?.message || 'none')
 
     if (authError) {
       return { error: authError }
     }
 
     await get().fetchUser()
+    console.log('[auth] login complete, user:', get().user?.email || 'none')
     return { error: null }
   },
 
@@ -98,40 +102,54 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: true })
     }
 
-    // Safety timeout: stop loading after 5s even if getUser() hangs
+    console.log('[auth] fetchUser started, currentUser:', currentUser?.id || 'none')
+
+    // Safety timeout: stop loading after 8s even if getUser() hangs
     const loadingTimeout = setTimeout(() => {
+      console.warn('[auth] fetchUser safety timeout fired after 8s')
       if (get().isLoading) {
         set({ isLoading: false })
       }
-    }, 5000)
+    }, 8000)
 
     try {
+      console.log('[auth] calling supabase.auth.getUser()...')
+      const startTime = Date.now()
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+      console.log('[auth] getUser() took', Date.now() - startTime, 'ms, user:', authUser?.id || 'none', 'error:', authError?.message || 'none')
 
       clearTimeout(loadingTimeout)
 
       if (authError || !authUser) {
+        console.log('[auth] No auth user, clearing state')
         set({ user: null, isAuthenticated: false, isLoading: false })
         return
       }
 
       // If we already have this user loaded, just stop loading
       if (currentUser?.id === authUser.id) {
+        console.log('[auth] User already loaded, skipping DB fetch')
         set({ isLoading: false })
         return
       }
 
+      console.log('[auth] Fetching user profile from DB...')
+      const dbStart = Date.now()
       const { data: userData, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', authUser.id)
         .single()
 
+      console.log('[auth] DB query took', Date.now() - dbStart, 'ms, result:', userData?.id || 'none', 'error:', error?.message || 'none')
+
       if (error || !userData) {
+        console.error('[auth] Failed to fetch user profile:', error?.message)
         set({ user: null, isAuthenticated: false, isLoading: false })
         return
       }
 
+      console.log('[auth] User authenticated:', userData.email, 'role:', userData.role)
       set({
         user: userData,
         isAuthenticated: true,
@@ -139,6 +157,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       })
     } catch (err) {
       clearTimeout(loadingTimeout)
+      console.error('[auth] fetchUser error:', err)
       // On timeout/network error, don't log out if already authenticated
       if (currentUser) {
         set({ isLoading: false })
