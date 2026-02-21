@@ -98,8 +98,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: true })
     }
 
+    // Safety timeout: stop loading after 5s even if getUser() hangs
+    const loadingTimeout = setTimeout(() => {
+      if (get().isLoading) {
+        set({ isLoading: false })
+      }
+    }, 5000)
+
     try {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+
+      clearTimeout(loadingTimeout)
 
       if (authError || !authUser) {
         set({ user: null, isAuthenticated: false, isLoading: false })
@@ -129,6 +138,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
       })
     } catch (err) {
+      clearTimeout(loadingTimeout)
       // On timeout/network error, don't log out if already authenticated
       if (currentUser) {
         set({ isLoading: false })
