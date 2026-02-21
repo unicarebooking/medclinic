@@ -2,6 +2,22 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  // Skip auth check entirely for public routes and API routes (major perf improvement)
+  const isPublicRoute = pathname === '/' ||
+    pathname.startsWith('/doctors') ||
+    pathname.startsWith('/about') ||
+    pathname.startsWith('/contact') ||
+    pathname.startsWith('/faq') ||
+    pathname.startsWith('/privacy') ||
+    pathname.startsWith('/terms') ||
+    pathname.startsWith('/api/')
+
+  if (isPublicRoute) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -35,16 +51,16 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Define protected routes
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') ||
-    request.nextUrl.pathname.startsWith('/register') ||
-    request.nextUrl.pathname.startsWith('/forgot-password')
+  const isAuthRoute = pathname.startsWith('/login') ||
+    pathname.startsWith('/register') ||
+    pathname.startsWith('/forgot-password')
 
-  const isPatientRoute = request.nextUrl.pathname.startsWith('/patient')
+  const isPatientRoute = pathname.startsWith('/patient')
 
   // Use '/doctor/' with trailing slash to avoid matching '/doctors' (public page)
-  const isDoctorRoute = request.nextUrl.pathname.startsWith('/doctor/')
+  const isDoctorRoute = pathname.startsWith('/doctor/')
 
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
+  const isAdminRoute = pathname.startsWith('/admin')
 
   // Redirect to login if accessing protected routes without authentication
   if (!user && (isPatientRoute || isDoctorRoute || isAdminRoute)) {
