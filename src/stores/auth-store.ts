@@ -141,7 +141,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .eq('id', authUser.id)
         .single()
 
-      console.log('[auth] DB query took', Date.now() - dbStart, 'ms, result:', userData?.id || 'none', 'error:', error?.message || 'none')
+      console.log('[auth] DB query took', Date.now() - dbStart, 'ms, hasData:', !!userData, 'error:', error?.message || 'none')
 
       if (error || !userData) {
         console.error('[auth] Failed to fetch user profile:', error?.message)
