@@ -140,12 +140,30 @@ export default function DoctorTranscriptionsPage() {
   }, [fetchSavedTranscriptions])
 
   // Poll job status
+  const pollFailCount = useRef(0)
+
   useEffect(() => {
     if (!currentJob || currentJob.status === 'completed' || currentJob.status === 'error') return
+    pollFailCount.current = 0
 
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`/api/transcription/status/${currentJob.jobId}`)
+
+        if (!res.ok) {
+          pollFailCount.current++
+          if (pollFailCount.current >= 5) {
+            setCurrentJob((prev) => prev ? {
+              ...prev,
+              status: 'error',
+              errorMessage: 'שרת התמלול אינו זמין. ודא שהשרת פעיל ונסה שוב.',
+            } : null)
+            toast.error('שרת התמלול אינו זמין')
+          }
+          return
+        }
+
+        pollFailCount.current = 0
         const data = await res.json()
 
         setCurrentJob((prev) => prev ? {
@@ -165,7 +183,15 @@ export default function DoctorTranscriptionsPage() {
           toast.error(`שגיאה בתמלול: ${data.error_message}`)
         }
       } catch {
-        // Ignore polling errors
+        pollFailCount.current++
+        if (pollFailCount.current >= 5) {
+          setCurrentJob((prev) => prev ? {
+            ...prev,
+            status: 'error',
+            errorMessage: 'שרת התמלול אינו זמין. ודא שהשרת פעיל ונסה שוב.',
+          } : null)
+          toast.error('שרת התמלול אינו זמין')
+        }
       }
     }, 2000)
 

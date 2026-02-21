@@ -91,26 +91,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   fetchUser: async () => {
     const supabase = createClient()
-    set({ isLoading: true })
-    console.log('=== fetchUser started ===')
+    const currentUser = get().user
+
+    // Only show loading if we don't have a user yet
+    if (!currentUser) {
+      set({ isLoading: true })
+    }
 
     try {
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Auth timeout')), 15000)
-      )
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
 
-      const authPromise = supabase.auth.getUser()
-
-      const result = await Promise.race([authPromise, timeoutPromise]) as any
-      const authUser = result?.data?.user
-      const authError = result?.error
-
-      console.log('Auth user:', authUser?.id, 'Auth error:', authError)
-
-      if (!authUser) {
-        console.log('No auth user, setting isLoading to false')
+      if (authError || !authUser) {
         set({ user: null, isAuthenticated: false, isLoading: false })
+        return
+      }
+
+      // If we already have this user loaded, just stop loading
+      if (currentUser?.id === authUser.id) {
+        set({ isLoading: false })
         return
       }
 
@@ -120,22 +118,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .eq('id', authUser.id)
         .single()
 
-      console.log('User data:', userData, 'Error:', error)
-
       if (error || !userData) {
-        console.log('No user data, setting isLoading to false')
         set({ user: null, isAuthenticated: false, isLoading: false })
         return
       }
 
-      console.log('Setting authenticated user')
       set({
         user: userData,
         isAuthenticated: true,
         isLoading: false,
       })
     } catch (err) {
-      console.log('fetchUser error:', err)
+      // On timeout/network error, don't log out if already authenticated
+      if (currentUser) {
+        set({ isLoading: false })
+        return
+      }
       set({ user: null, isAuthenticated: false, isLoading: false })
     }
   },
