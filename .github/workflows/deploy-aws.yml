@@ -73,7 +73,7 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPO:latest
 
   # ──────────────────────────────────────────────
-  # Deploy to ECS
+  # Deploy to ECS (Service Connect handles routing)
   # ──────────────────────────────────────────────
   deploy:
     name: Deploy to ECS
@@ -88,10 +88,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # Step 1: Deploy backend services first (transcription + rag)
-      - name: Deploy backend services
+      - name: Deploy all services
         run: |
-          for SERVICE in medclinic-transcription medclinic-rag; do
+          for SERVICE in medclinic-transcription medclinic-rag medclinic-web; do
             echo "Deploying $SERVICE..."
             aws ecs update-service \
               --cluster $ECS_CLUSTER \
@@ -100,97 +99,10 @@ jobs:
               --no-cli-pager
           done
 
-      - name: Wait for backend services to stabilize
+      - name: Wait for all services to stabilize
         run: |
-          echo "Waiting for transcription and rag to stabilize..."
+          echo "Waiting for all services to stabilize..."
           aws ecs wait services-stable \
             --cluster $ECS_CLUSTER \
-            --services medclinic-transcription medclinic-rag
-          echo "Backend services are stable!"
-
-      # Step 2: Get new private IPs of backend services
-      - name: Discover backend service IPs
-        id: discover-ips
-        run: |
-          # Get transcription task IP
-          TRANSCRIPTION_TASK=$(aws ecs list-tasks \
-            --cluster $ECS_CLUSTER \
-            --service-name medclinic-transcription \
-            --query 'taskArns[0]' --output text)
-          TRANSCRIPTION_IP=$(aws ecs describe-tasks \
-            --cluster $ECS_CLUSTER \
-            --tasks "$TRANSCRIPTION_TASK" \
-            --query 'tasks[0].attachments[0].details[?name==`privateIPv4Address`].value' \
-            --output text)
-          echo "Transcription IP: $TRANSCRIPTION_IP"
-          echo "transcription_ip=$TRANSCRIPTION_IP" >> $GITHUB_OUTPUT
-
-          # Get rag task IP
-          RAG_TASK=$(aws ecs list-tasks \
-            --cluster $ECS_CLUSTER \
-            --service-name medclinic-rag \
-            --query 'taskArns[0]' --output text)
-          RAG_IP=$(aws ecs describe-tasks \
-            --cluster $ECS_CLUSTER \
-            --tasks "$RAG_TASK" \
-            --query 'tasks[0].attachments[0].details[?name==`privateIPv4Address`].value' \
-            --output text)
-          echo "RAG IP: $RAG_IP"
-          echo "rag_ip=$RAG_IP" >> $GITHUB_OUTPUT
-
-      # Step 3: Update web task definition with new backend IPs
-      - name: Update web task definition with backend IPs
-        env:
-          TRANSCRIPTION_IP: ${{ steps.discover-ips.outputs.transcription_ip }}
-          RAG_IP: ${{ steps.discover-ips.outputs.rag_ip }}
-        run: |
-          echo "Updating web task definition..."
-          echo "  TRANSCRIPTION_SERVICE_URL=http://$TRANSCRIPTION_IP:8000"
-          echo "  RAG_SERVER_URL=http://$RAG_IP:8001"
-
-          # Get current task definition
-          aws ecs describe-task-definition \
-            --task-definition medclinic-web \
-            --query 'taskDefinition' \
-            --output json > /tmp/current-td.json
-
-          # Update IPs in environment variables using jq
-          cat /tmp/current-td.json | jq \
-            --arg trans_url "http://$TRANSCRIPTION_IP:8000" \
-            --arg rag_url "http://$RAG_IP:8001" '
-            del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
-            .containerDefinitions[0].environment = [
-              .containerDefinitions[0].environment[] |
-              if .name == "TRANSCRIPTION_SERVICE_URL" then .value = $trans_url
-              elif .name == "RAG_SERVER_URL" then .value = $rag_url
-              else .
-              end
-            ]
-          ' > /tmp/new-td.json
-
-          # Register new task definition
-          NEW_TD_ARN=$(aws ecs register-task-definition \
-            --cli-input-json file:///tmp/new-td.json \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text)
-          echo "New task definition: $NEW_TD_ARN"
-          echo "web_td_arn=$NEW_TD_ARN" >> $GITHUB_ENV
-
-      # Step 4: Deploy web service with updated task definition
-      - name: Deploy web service
-        run: |
-          echo "Deploying web with updated backend IPs..."
-          aws ecs update-service \
-            --cluster $ECS_CLUSTER \
-            --service medclinic-web \
-            --task-definition "$web_td_arn" \
-            --force-new-deployment \
-            --no-cli-pager
-
-      - name: Wait for web service to stabilize
-        run: |
-          echo "Waiting for web service to stabilize..."
-          aws ecs wait services-stable \
-            --cluster $ECS_CLUSTER \
-            --services medclinic-web
+            --services medclinic-transcription medclinic-rag medclinic-web
           echo "All services are stable!"
