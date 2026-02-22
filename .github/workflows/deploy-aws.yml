@@ -88,16 +88,48 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy all services
+      - name: Deploy all services with Service Connect
+        env:
+          SC_NAMESPACE: arn:aws:servicediscovery:il-central-1:${{ secrets.AWS_ACCOUNT_ID }}:namespace/ns-r5fjxgptianf2qqi
         run: |
-          for SERVICE in medclinic-transcription medclinic-rag medclinic-web; do
-            echo "Deploying $SERVICE..."
-            aws ecs update-service \
-              --cluster $ECS_CLUSTER \
-              --service $SERVICE \
-              --force-new-deployment \
-              --no-cli-pager
-          done
+          # Deploy transcription with Service Connect server config
+          echo "Deploying medclinic-transcription..."
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service medclinic-transcription \
+            --service-connect-configuration '{
+              "enabled": true,
+              "namespace": "'"$SC_NAMESPACE"'",
+              "services": [{"portName":"transcription","discoveryName":"transcription","clientAliases":[{"port":8000,"dnsName":"transcription"}]}]
+            }' \
+            --force-new-deployment \
+            --no-cli-pager
+
+          # Deploy rag with Service Connect server config
+          echo "Deploying medclinic-rag..."
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service medclinic-rag \
+            --service-connect-configuration '{
+              "enabled": true,
+              "namespace": "'"$SC_NAMESPACE"'",
+              "services": [{"portName":"rag","discoveryName":"rag","clientAliases":[{"port":8001,"dnsName":"rag"}]}]
+            }' \
+            --force-new-deployment \
+            --no-cli-pager
+
+          # Deploy web as Service Connect client only
+          echo "Deploying medclinic-web..."
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service medclinic-web \
+            --service-connect-configuration '{
+              "enabled": true,
+              "namespace": "'"$SC_NAMESPACE"'",
+              "services": []
+            }' \
+            --force-new-deployment \
+            --no-cli-pager
 
       - name: Wait for all services to stabilize
         run: |
