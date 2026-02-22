@@ -24,6 +24,9 @@ interface AuthState {
   fetchUser: () => Promise<void>
 }
 
+// Prevent multiple concurrent fetchUser calls
+let fetchUserLock = false
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: true,
@@ -94,6 +97,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   fetchUser: async () => {
+    // Prevent multiple concurrent calls
+    if (fetchUserLock) {
+      console.log('[auth] fetchUser skipped (already in progress)')
+      return
+    }
+    fetchUserLock = true
+
     const supabase = createClient()
     const currentUser = get().user
 
@@ -104,27 +114,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     console.log('[auth] fetchUser started, currentUser:', currentUser?.id || 'none')
 
-    // Safety timeout: stop loading after 8s even if getUser() hangs
-    const loadingTimeout = setTimeout(() => {
-      console.warn('[auth] fetchUser safety timeout fired after 8s')
-      if (get().isLoading) {
-        set({ isLoading: false })
-      }
-    }, 8000)
-
     try {
-      console.log('[auth] calling supabase.auth.getUser()...')
+      // Use getSession() - reads from local storage, no network call, instant
+      console.log('[auth] calling supabase.auth.getSession()...')
       const startTime = Date.now()
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
-      console.log('[auth] getUser() took', Date.now() - startTime, 'ms, user:', authUser?.id || 'none', 'error:', authError?.message || 'none')
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      console.log('[auth] getSession() took', Date.now() - startTime, 'ms, user:', session?.user?.id || 'none', 'error:', sessionError?.message || 'none')
 
-      clearTimeout(loadingTimeout)
-
-      if (authError || !authUser) {
-        console.log('[auth] No auth user, clearing state')
+      if (sessionError || !session?.user) {
+        console.log('[auth] No session, clearing state')
         set({ user: null, isAuthenticated: false, isLoading: false })
         return
       }
+
+      const authUser = session.user
 
       // If we already have this user loaded, just stop loading
       if (currentUser?.id === authUser.id) {
@@ -157,7 +160,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
       })
     } catch (err) {
-      clearTimeout(loadingTimeout)
       console.error('[auth] fetchUser error:', err)
       // On timeout/network error, don't log out if already authenticated
       if (currentUser) {
@@ -165,6 +167,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return
       }
       set({ user: null, isAuthenticated: false, isLoading: false })
+    } finally {
+      fetchUserLock = false
     }
   },
 }))
