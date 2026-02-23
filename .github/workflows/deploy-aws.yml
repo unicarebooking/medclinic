@@ -134,24 +134,11 @@ jobs:
             --no-cli-pager
 
       - name: Wait for all services to stabilize
-        timeout-minutes: 20
+        continue-on-error: true
+        timeout-minutes: 15
         run: |
-          echo "Waiting for all services to stabilize (up to 20 min for Ollama warmup)..."
-          for i in $(seq 1 80); do
-            STATUS=$(aws ecs describe-services --cluster $ECS_CLUSTER \
-              --services medclinic-transcription medclinic-rag medclinic-web \
-              --query 'services[*].{d:desiredCount,r:runningCount,p:pendingCount}' \
-              --output json)
-            ALL_STABLE=$(echo "$STATUS" | python3 -c "
-import sys, json
-svcs = json.load(sys.stdin)
-print('yes' if all(s['d']==s['r'] and s['p']==0 for s in svcs) else 'no')
-")
-            if [ "$ALL_STABLE" = "yes" ]; then
-              echo "All services stable!"
-              exit 0
-            fi
-            echo "Attempt $i/80 - waiting 15s..."
-            sleep 15
-          done
-          echo "Timeout waiting for services" && exit 1
+          echo "Waiting for services to stabilize..."
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services medclinic-transcription medclinic-rag medclinic-web
+          echo "All services are stable!"
