@@ -204,7 +204,7 @@ def query_ollama(query: str, context: str) -> str:
         prompt=prompt,
         options={
             "temperature": 0.2,
-            "num_ctx": 2048,
+            "num_ctx": 2560,
         },
     )
 
