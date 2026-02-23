@@ -38,7 +38,7 @@ export default function RAGSearchPage() {
     }
 
     checkHealth()
-    interval = setInterval(checkHealth, 5000)
+    interval = setInterval(checkHealth, 15000)
     return () => clearInterval(interval)
   }, [])
 
