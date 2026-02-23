@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -19,6 +19,28 @@ export default function RAGSearchPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<RAGQueryResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [modelReady, setModelReady] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+
+    const checkHealth = async () => {
+      try {
+        const res = await fetch('/api/rag/health')
+        const data = await res.json()
+        setModelReady(data.ready === true)
+        if (data.ready === true) {
+          clearInterval(interval)
+        }
+      } catch {
+        setModelReady(false)
+      }
+    }
+
+    checkHealth()
+    interval = setInterval(checkHealth, 5000)
+    return () => clearInterval(interval)
+  }, [])
 
   const handleSearch = async () => {
     if (!query.trim()) return
@@ -62,6 +84,25 @@ export default function RAGSearchPage() {
 
   return (
     <div className="p-8">
+
+      {/* Model loading banner */}
+      {modelReady === false && (
+        <Card className="mb-6 border-yellow-300 bg-yellow-50">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3" dir="rtl">
+              <svg className="animate-spin h-5 w-5 text-yellow-600 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <div>
+                <p className="font-medium text-yellow-800">מודל ה-AI בטעינה...</p>
+                <p className="text-sm text-yellow-700">הטעינה אורכת כ-3-5 דקות. ניתן להמתין - החיפוש יהיה זמין בקרוב.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <h1 className="text-3xl font-bold mb-2">חיפוש חכם בסיכומים</h1>
       <p className="text-muted-foreground mb-8">
         שאל שאלות בשפה חופשית על סיכומי הטיפולים שלך וקבל תשובות מבוססות AI

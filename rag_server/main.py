@@ -11,6 +11,7 @@ Environment Variables:
   OLLAMA_EMBEDDING_MODEL    - Ollama embedding model (default: nomic-embed-text)
 """
 
+import asyncio
 import os
 import logging
 from datetime import datetime
@@ -51,6 +52,9 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
 # Supabase client (service role - bypasses RLS for fetching data)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
+# Model warmup state
+model_ready = False
+
 # FastAPI app
 app = FastAPI(title="MedClinic RAG Server", version="2.0.0")
 
@@ -61,6 +65,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+async def _warmup_ollama():
+    """Pre-load the Ollama model into RAM on startup."""
+    global model_ready
+    await asyncio.sleep(5)  # wait for server to fully initialize
+    try:
+        logger.info(f"Warming up Ollama model: {OLLAMA_MODEL}...")
+        client = ollama.Client()
+        client.generate(model=OLLAMA_MODEL, prompt="היי", stream=False)
+        model_ready = True
+        logger.info("Ollama model is ready.")
+    except Exception as e:
+        logger.error(f"Ollama warmup failed: {e}")
+        model_ready = False
+
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(_warmup_ollama())
 
 
 # Models
@@ -188,10 +212,16 @@ def query_ollama(query: str, context: str) -> str:
 
 
 # Routes
-@app.get("/api/health")
+@app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "ok", "model": OLLAMA_MODEL, "version": "2.0.0-vector"}
+    """Health check endpoint - also used by ALB."""
+    return {"status": "ok", "model": OLLAMA_MODEL, "ready": model_ready}
+
+
+@app.get("/api/health")
+async def api_health_check():
+    """Health check endpoint (legacy path)."""
+    return {"status": "ok", "model": OLLAMA_MODEL, "ready": model_ready}
 
 
 @app.post("/rag/query", response_model=RAGQueryResponse)
@@ -279,15 +309,15 @@ async def index_document(request: IndexRequest, raw_request: Request):
     return IndexResponse(status="ok", chunks_created=count)
 
 
-@app.post("/rag/reindex-all", response_model=ReindexResponse)
+@app.post("/rag/reindex-all")
 async def reindex_all_endpoint(raw_request: Request, background_tasks: BackgroundTasks):
-    """Reindex all existing data. Runs in background for large datasets."""
+    """Reindex all existing data. Runs in background so the server stays responsive."""
     verify_internal_key(raw_request)
 
-    logger.info("Starting full reindex...")
-    stats = reindex_all(supabase)
+    logger.info("Starting full reindex in background...")
+    background_tasks.add_task(reindex_all, supabase)
 
-    return ReindexResponse(status="ok", stats=stats)
+    return {"status": "started", "message": "Reindex running in background"}
 
 
 if __name__ == "__main__":
