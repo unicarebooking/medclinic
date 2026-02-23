@@ -90,7 +90,7 @@ async def startup_event():
 # Models
 class RAGQueryRequest(BaseModel):
     query: str
-    top_k: int = 10
+    top_k: int = 5
     doctor_id: str
 
 
@@ -204,7 +204,7 @@ def query_ollama(query: str, context: str) -> str:
         prompt=prompt,
         options={
             "temperature": 0.2,
-            "num_ctx": 8192,
+            "num_ctx": 2048,
         },
     )
 
