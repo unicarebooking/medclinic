@@ -107,9 +107,11 @@ jobs:
 
           # Deploy rag with Service Connect server config
           echo "Deploying medclinic-rag..."
+          RAG_TASK_DEF=$(aws ecs describe-task-definition --task-definition medclinic-rag --region $AWS_REGION --query 'taskDefinition.taskDefinitionArn' --output text)
           aws ecs update-service \
             --cluster $ECS_CLUSTER \
             --service medclinic-rag \
+            --task-definition "$RAG_TASK_DEF" \
             --service-connect-configuration '{
               "enabled": true,
               "namespace": "'"$SC_NAMESPACE"'",
