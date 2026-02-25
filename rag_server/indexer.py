@@ -216,39 +216,73 @@ def index_patient_for_doctor(
     return count
 
 
+def _fetch_all_rows(supabase: Client, table: str, select: str = "id") -> list[dict]:
+    """Fetch all rows from a table with pagination (Supabase returns max 1000)."""
+    all_rows: list[dict] = []
+    page = 0
+    page_size = 1000
+    while True:
+        result = (
+            supabase.table(table)
+            .select(select)
+            .range(page * page_size, (page + 1) * page_size - 1)
+            .execute()
+        )
+        rows = result.data or []
+        all_rows.extend(rows)
+        if len(rows) < page_size:
+            break
+        page += 1
+    return all_rows
+
+
 def reindex_all(supabase: Client) -> dict:
     """Reindex all existing data. Used for initial migration.
 
+    Paginates through all records and skips already-indexed ones.
     Returns summary dict with counts.
     """
-    stats = {"treatment_summaries": 0, "transcriptions": 0, "patients": 0, "errors": 0}
+    stats = {"treatment_summaries": 0, "transcriptions": 0, "patients": 0, "errors": 0, "skipped": 0}
 
-    # Index all treatment summaries
-    result = supabase.table("treatment_summaries").select("id").execute()
-    for row in result.data or []:
+    # Get already-indexed source IDs to skip them
+    indexed_ids: set[str] = set()
+    for row in _fetch_all_rows(supabase, "document_chunks", "source_id"):
+        indexed_ids.add(row["source_id"])
+    logger.info(f"Found {len(indexed_ids)} already-indexed sources, will skip them")
+
+    # Index all treatment summaries (paginated)
+    summaries = _fetch_all_rows(supabase, "treatment_summaries")
+    logger.info(f"Found {len(summaries)} treatment summaries to process")
+    for i, row in enumerate(summaries):
+        if row["id"] in indexed_ids:
+            stats["skipped"] += 1
+            continue
         try:
             stats["treatment_summaries"] += index_treatment_summary(supabase, row["id"])
+            if (i + 1) % 100 == 0:
+                logger.info(f"Progress: {i + 1}/{len(summaries)} summaries processed")
         except Exception as e:
             logger.error(f"Error indexing summary {row['id']}: {e}")
             stats["errors"] += 1
 
-    # Index all transcriptions
-    result = supabase.table("transcriptions").select("id").execute()
-    for row in result.data or []:
+    # Index all transcriptions (paginated)
+    transcriptions = _fetch_all_rows(supabase, "transcriptions")
+    logger.info(f"Found {len(transcriptions)} transcriptions to process")
+    for row in transcriptions:
+        if row["id"] in indexed_ids:
+            stats["skipped"] += 1
+            continue
         try:
             stats["transcriptions"] += index_transcription(supabase, row["id"])
         except Exception as e:
             logger.error(f"Error indexing transcription {row['id']}: {e}")
             stats["errors"] += 1
 
-    # Index patients: find all patients who have appointments with doctors
-    result = (
-        supabase.table("appointments")
-        .select("patient_id, doctor_id")
-        .execute()
-    )
-    seen = set()
-    for row in result.data or []:
+    # Index patients: find all patients who have appointments with doctors (paginated)
+    appointments = _fetch_all_rows(supabase, "appointments", "patient_id, doctor_id")
+    logger.info(f"Found {len(appointments)} appointments for patient indexing")
+    seen: set[tuple[str, str]] = set()
+    for row in appointments:
         key = (row["patient_id"], row["doctor_id"])
         if key in seen:
             continue
