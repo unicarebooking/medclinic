@@ -170,20 +170,29 @@ jobs:
             --force-new-deployment \
             --no-cli-pager
 
-          # Deploy ollama with Service Connect server config
-          echo "Deploying medclinic-ollama..."
-          OLLAMA_TASK_DEF=$(aws ecs describe-task-definition --task-definition medclinic-ollama --region $AWS_REGION --query 'taskDefinition.taskDefinitionArn' --output text)
-          aws ecs update-service \
-            --cluster $ECS_CLUSTER \
-            --service medclinic-ollama \
-            --task-definition "$OLLAMA_TASK_DEF" \
-            --service-connect-configuration '{
-              "enabled": true,
-              "namespace": "'"$SC_NAMESPACE"'",
-              "services": [{"portName":"ollama","discoveryName":"ollama","clientAliases":[{"port":11434,"dnsName":"ollama.medclinic.local"}]}]
-            }' \
-            --force-new-deployment \
-            --no-cli-pager
+          # Deploy ollama with Service Connect server config (only if service exists)
+          echo "Checking medclinic-ollama service..."
+          OLLAMA_STATUS=$(aws ecs describe-services \
+            --cluster $ECS_CLUSTER --services medclinic-ollama --region $AWS_REGION \
+            --query 'services[?status==`ACTIVE`].serviceName' --output text)
+          if [ "$OLLAMA_STATUS" = "medclinic-ollama" ]; then
+            echo "Deploying medclinic-ollama..."
+            OLLAMA_TASK_DEF=$(aws ecs describe-task-definition --task-definition medclinic-ollama --region $AWS_REGION --query 'taskDefinition.taskDefinitionArn' --output text)
+            aws ecs update-service \
+              --cluster $ECS_CLUSTER \
+              --service medclinic-ollama \
+              --task-definition "$OLLAMA_TASK_DEF" \
+              --service-connect-configuration '{
+                "enabled": true,
+                "namespace": "'"$SC_NAMESPACE"'",
+                "services": [{"portName":"ollama","discoveryName":"ollama","clientAliases":[{"port":11434,"dnsName":"ollama.medclinic.local"}]}]
+              }' \
+              --force-new-deployment \
+              --no-cli-pager
+          else
+            echo "WARNING: medclinic-ollama service not found in cluster. Create it in AWS Console first."
+            echo "Skipping ollama deployment - RAG server will not have AI capabilities."
+          fi
 
           # Deploy web as Service Connect client only
           echo "Deploying medclinic-web..."
@@ -205,7 +214,14 @@ jobs:
         timeout-minutes: 20
         run: |
           echo "Waiting for services to stabilize..."
+          SERVICES="medclinic-transcription medclinic-rag medclinic-web"
+          OLLAMA_STATUS=$(aws ecs describe-services \
+            --cluster $ECS_CLUSTER --services medclinic-ollama --region $AWS_REGION \
+            --query 'services[?status==`ACTIVE`].serviceName' --output text)
+          if [ "$OLLAMA_STATUS" = "medclinic-ollama" ]; then
+            SERVICES="$SERVICES medclinic-ollama"
+          fi
           aws ecs wait services-stable \
             --cluster $ECS_CLUSTER \
-            --services medclinic-transcription medclinic-rag medclinic-ollama medclinic-web
+            --services $SERVICES
           echo "All services are stable!"
