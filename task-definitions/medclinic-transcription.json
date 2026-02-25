@@ -1,0 +1,73 @@
+{
+  "family": "medclinic-transcription",
+  "executionRoleArn": "arn:aws:iam::AWS_ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "name": "transcription",
+      "image": "AWS_ACCOUNT_ID.dkr.ecr.il-central-1.amazonaws.com/medclinic-transcription:ECR_IMAGE_TAG",
+      "cpu": 0,
+      "portMappings": [
+        {
+          "name": "transcription",
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp",
+          "appProtocol": "http"
+        }
+      ],
+      "essential": true,
+      "environment": [],
+      "mountPoints": [
+        {
+          "containerPath": "/app/uploads",
+          "sourceVolume": "transcription-uploads",
+          "readOnly": false
+        },
+        {
+          "containerPath": "/app/outputs",
+          "sourceVolume": "transcription-outputs",
+          "readOnly": false
+        }
+      ],
+      "volumesFrom": [],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/medclinic-transcription",
+          "awslogs-create-group": "true",
+          "awslogs-region": "il-central-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "systemControls": []
+    }
+  ],
+  "volumes": [
+    {
+      "name": "transcription-uploads",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-XXXXXXXX",
+        "transitEncryption": "ENABLED",
+        "authorizationConfig": {
+          "accessPointId": "fsap-UPLOADS",
+          "iam": "DISABLED"
+        }
+      }
+    },
+    {
+      "name": "transcription-outputs",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-XXXXXXXX",
+        "transitEncryption": "ENABLED",
+        "authorizationConfig": {
+          "accessPointId": "fsap-OUTPUTS",
+          "iam": "DISABLED"
+        }
+      }
+    }
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048"
+}

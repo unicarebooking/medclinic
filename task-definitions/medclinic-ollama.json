@@ -1,0 +1,50 @@
+{
+  "family": "medclinic-ollama",
+  "executionRoleArn": "arn:aws:iam::AWS_ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "name": "ollama",
+      "image": "AWS_ACCOUNT_ID.dkr.ecr.il-central-1.amazonaws.com/medclinic-ollama:ECR_IMAGE_TAG",
+      "cpu": 0,
+      "portMappings": [
+        {
+          "name": "ollama",
+          "containerPort": 11434,
+          "hostPort": 11434,
+          "protocol": "tcp",
+          "appProtocol": "http"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "OLLAMA_MAX_LOADED_MODELS",
+          "value": "2"
+        },
+        {
+          "name": "OLLAMA_KEEP_ALIVE",
+          "value": "24h"
+        }
+      ],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/medclinic-ollama",
+          "awslogs-create-group": "true",
+          "awslogs-region": "il-central-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "systemControls": []
+    }
+  ],
+  "ephemeralStorage": {
+    "sizeInGiB": 50
+  },
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "2048",
+  "memory": "8192"
+}

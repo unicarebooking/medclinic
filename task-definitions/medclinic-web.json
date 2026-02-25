@@ -1,0 +1,59 @@
+{
+  "family": "medclinic-web",
+  "executionRoleArn": "arn:aws:iam::AWS_ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "name": "web",
+      "image": "AWS_ACCOUNT_ID.dkr.ecr.il-central-1.amazonaws.com/medclinic-web:ECR_IMAGE_TAG",
+      "cpu": 0,
+      "portMappings": [
+        {
+          "name": "web",
+          "containerPort": 3000,
+          "hostPort": 3000,
+          "protocol": "tcp",
+          "appProtocol": "http"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "RAG_SERVER_URL",
+          "value": "http://rag.medclinic.local:8001"
+        },
+        {
+          "name": "TRANSCRIPTION_SERVICE_URL",
+          "value": "http://transcription.medclinic.local:8000"
+        },
+        {
+          "name": "NEXT_PUBLIC_SUPABASE_URL",
+          "value": "https://lnhypawuvjiyzusvafeu.supabase.co"
+        },
+        {
+          "name": "SUPABASE_SERVICE_ROLE_KEY",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuaHlwYXd1dmppeXp1c3ZhZmV1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDU2MDIwNywiZXhwIjoyMDg2MTM2MjA3fQ.jP-ShtFLUH1kvhG5OHPTFa6XCEmLETRdMiCrGaS9fIM"
+        },
+        {
+          "name": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuaHlwYXd1dmppeXp1c3ZhZmV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NjAyMDcsImV4cCI6MjA4NjEzNjIwN30.OB46xis38o8m4jnQ2kar-Jn4EL_8E3ySXjHH4rQqAeQ"
+        }
+      ],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/medclinic-web",
+          "awslogs-create-group": "true",
+          "awslogs-region": "il-central-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "systemControls": []
+    }
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048"
+}

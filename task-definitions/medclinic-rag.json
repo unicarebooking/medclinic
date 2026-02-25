@@ -1,0 +1,63 @@
+{
+  "family": "medclinic-rag",
+  "executionRoleArn": "arn:aws:iam::AWS_ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "name": "rag",
+      "image": "AWS_ACCOUNT_ID.dkr.ecr.il-central-1.amazonaws.com/medclinic-rag:ECR_IMAGE_TAG",
+      "cpu": 0,
+      "portMappings": [
+        {
+          "name": "rag",
+          "containerPort": 8001,
+          "hostPort": 8001,
+          "protocol": "tcp",
+          "appProtocol": "http"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "SUPABASE_URL",
+          "value": "https://lnhypawuvjiyzusvafeu.supabase.co"
+        },
+        {
+          "name": "SUPABASE_SERVICE_KEY",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuaHlwYXd1dmppeXp1c3ZhZmV1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDU2MDIwNywiZXhwIjoyMDg2MTM2MjA3fQ.jP-ShtFLUH1kvhG5OHPTFa6XCEmLETRdMiCrGaS9fIM"
+        },
+        {
+          "name": "SUPABASE_JWT_SECRET",
+          "value": "pARYQAK2z5thoy9SK+2GCKO+Ty9WGfMwjbc/HRU4hbiJfl5/cm9Yy2S8QqKT2cGkeuik66hEt4hZtVQgQPfkCw=="
+        },
+        {
+          "name": "OLLAMA_HOST",
+          "value": "http://ollama.medclinic.local:11434"
+        },
+        {
+          "name": "OLLAMA_MODEL",
+          "value": "llama3.2:1b"
+        },
+        {
+          "name": "OLLAMA_EMBEDDING_MODEL",
+          "value": "nomic-embed-text"
+        }
+      ],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/medclinic-rag",
+          "awslogs-create-group": "true",
+          "awslogs-region": "il-central-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "systemControls": []
+    }
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048"
+}

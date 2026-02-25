@@ -81,6 +81,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -88,19 +91,58 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Inject ECR image tags into task definitions
+        env:
+          ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          for svc in medclinic-web medclinic-rag medclinic-transcription medclinic-ollama; do
+            sed -i "s|ECR_IMAGE_TAG|$IMAGE_TAG|g" task-definitions/${svc}.json
+            sed -i "s|AWS_ACCOUNT_ID|$ACCOUNT_ID|g" task-definitions/${svc}.json
+          done
+
+      - name: Inject EFS IDs into transcription task definition
+        env:
+          EFS_FILE_SYSTEM_ID: ${{ secrets.EFS_FILE_SYSTEM_ID }}
+          EFS_AP_UPLOADS: ${{ secrets.EFS_AP_UPLOADS }}
+          EFS_AP_OUTPUTS: ${{ secrets.EFS_AP_OUTPUTS }}
+        run: |
+          sed -i "s|fs-XXXXXXXX|$EFS_FILE_SYSTEM_ID|g" task-definitions/medclinic-transcription.json
+          sed -i "s|fsap-UPLOADS|$EFS_AP_UPLOADS|g" task-definitions/medclinic-transcription.json
+          sed -i "s|fsap-OUTPUTS|$EFS_AP_OUTPUTS|g" task-definitions/medclinic-transcription.json
+
+      - name: Register task definitions
+        run: |
+          echo "Registering task definitions..."
+          aws ecs register-task-definition \
+            --cli-input-json file://task-definitions/medclinic-web.json \
+            --no-cli-pager --query 'taskDefinition.taskDefinitionArn' --output text
+          aws ecs register-task-definition \
+            --cli-input-json file://task-definitions/medclinic-rag.json \
+            --no-cli-pager --query 'taskDefinition.taskDefinitionArn' --output text
+          aws ecs register-task-definition \
+            --cli-input-json file://task-definitions/medclinic-transcription.json \
+            --no-cli-pager --query 'taskDefinition.taskDefinitionArn' --output text
+          aws ecs register-task-definition \
+            --cli-input-json file://task-definitions/medclinic-ollama.json \
+            --no-cli-pager --query 'taskDefinition.taskDefinitionArn' --output text
+          echo "All task definitions registered."
+
       - name: Deploy all services with Service Connect
         env:
           SC_NAMESPACE: arn:aws:servicediscovery:il-central-1:${{ secrets.AWS_ACCOUNT_ID }}:namespace/ns-r5fjxgptianf2qqi
         run: |
           # Deploy transcription with Service Connect server config
           echo "Deploying medclinic-transcription..."
+          TRANSCRIPTION_TASK_DEF=$(aws ecs describe-task-definition --task-definition medclinic-transcription --region $AWS_REGION --query 'taskDefinition.taskDefinitionArn' --output text)
           aws ecs update-service \
             --cluster $ECS_CLUSTER \
             --service medclinic-transcription \
+            --task-definition "$TRANSCRIPTION_TASK_DEF" \
             --service-connect-configuration '{
               "enabled": true,
               "namespace": "'"$SC_NAMESPACE"'",
-              "services": [{"portName":"transcription","discoveryName":"transcription","clientAliases":[{"port":8000,"dnsName":"transcription"}]}]
+              "services": [{"portName":"transcription","discoveryName":"transcription","clientAliases":[{"port":8000,"dnsName":"transcription.medclinic.local"}]}]
             }' \
             --force-new-deployment \
             --no-cli-pager
@@ -115,16 +157,33 @@ jobs:
             --service-connect-configuration '{
               "enabled": true,
               "namespace": "'"$SC_NAMESPACE"'",
-              "services": [{"portName":"rag","discoveryName":"rag","clientAliases":[{"port":8001,"dnsName":"rag"}]}]
+              "services": [{"portName":"rag","discoveryName":"rag","clientAliases":[{"port":8001,"dnsName":"rag.medclinic.local"}]}]
+            }' \
+            --force-new-deployment \
+            --no-cli-pager
+
+          # Deploy ollama with Service Connect server config
+          echo "Deploying medclinic-ollama..."
+          OLLAMA_TASK_DEF=$(aws ecs describe-task-definition --task-definition medclinic-ollama --region $AWS_REGION --query 'taskDefinition.taskDefinitionArn' --output text)
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service medclinic-ollama \
+            --task-definition "$OLLAMA_TASK_DEF" \
+            --service-connect-configuration '{
+              "enabled": true,
+              "namespace": "'"$SC_NAMESPACE"'",
+              "services": [{"portName":"ollama","discoveryName":"ollama","clientAliases":[{"port":11434,"dnsName":"ollama.medclinic.local"}]}]
             }' \
             --force-new-deployment \
             --no-cli-pager
 
           # Deploy web as Service Connect client only
           echo "Deploying medclinic-web..."
+          WEB_TASK_DEF=$(aws ecs describe-task-definition --task-definition medclinic-web --region $AWS_REGION --query 'taskDefinition.taskDefinitionArn' --output text)
           aws ecs update-service \
             --cluster $ECS_CLUSTER \
             --service medclinic-web \
+            --task-definition "$WEB_TASK_DEF" \
             --service-connect-configuration '{
               "enabled": true,
               "namespace": "'"$SC_NAMESPACE"'",
@@ -135,10 +194,10 @@ jobs:
 
       - name: Wait for all services to stabilize
         continue-on-error: true
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: |
           echo "Waiting for services to stabilize..."
           aws ecs wait services-stable \
             --cluster $ECS_CLUSTER \
-            --services medclinic-transcription medclinic-rag medclinic-web
+            --services medclinic-transcription medclinic-rag medclinic-ollama medclinic-web
           echo "All services are stable!"

@@ -9,7 +9,7 @@ echo ""
 
 aws ecs describe-services \
   --cluster $CLUSTER \
-  --services medclinic-web medclinic-rag medclinic-transcription \
+  --services medclinic-web medclinic-rag medclinic-transcription medclinic-ollama \
   --region $REGION \
   --query "services[*].{Service:serviceName,Running:runningCount,Desired:desiredCount}" \
   --output table

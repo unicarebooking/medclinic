@@ -9,6 +9,7 @@ echo "Stopping MedClinic services..."
 aws ecs update-service --cluster $CLUSTER --service medclinic-web --desired-count 0 --no-cli-pager --region $REGION --query "service.serviceName" --output text
 aws ecs update-service --cluster $CLUSTER --service medclinic-rag --desired-count 0 --no-cli-pager --region $REGION --query "service.serviceName" --output text
 aws ecs update-service --cluster $CLUSTER --service medclinic-transcription --desired-count 0 --no-cli-pager --region $REGION --query "service.serviceName" --output text
+aws ecs update-service --cluster $CLUSTER --service medclinic-ollama --desired-count 0 --no-cli-pager --region $REGION --query "service.serviceName" --output text
 
 echo ""
 echo "All services scaled to 0. No Fargate charges."
