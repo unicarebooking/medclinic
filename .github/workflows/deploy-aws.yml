@@ -107,9 +107,17 @@ jobs:
           EFS_AP_UPLOADS: ${{ secrets.EFS_AP_UPLOADS }}
           EFS_AP_OUTPUTS: ${{ secrets.EFS_AP_OUTPUTS }}
         run: |
-          sed -i "s|fs-XXXXXXXX|$EFS_FILE_SYSTEM_ID|g" task-definitions/medclinic-transcription.json
-          sed -i "s|fsap-UPLOADS|$EFS_AP_UPLOADS|g" task-definitions/medclinic-transcription.json
-          sed -i "s|fsap-OUTPUTS|$EFS_AP_OUTPUTS|g" task-definitions/medclinic-transcription.json
+          if [ -n "$EFS_FILE_SYSTEM_ID" ] && [ -n "$EFS_AP_UPLOADS" ] && [ -n "$EFS_AP_OUTPUTS" ]; then
+            echo "EFS configured - injecting IDs..."
+            sed -i "s|fs-XXXXXXXX|$EFS_FILE_SYSTEM_ID|g" task-definitions/medclinic-transcription.json
+            sed -i "s|fsap-UPLOADS|$EFS_AP_UPLOADS|g" task-definitions/medclinic-transcription.json
+            sed -i "s|fsap-OUTPUTS|$EFS_AP_OUTPUTS|g" task-definitions/medclinic-transcription.json
+          else
+            echo "EFS secrets not configured - falling back to ephemeral storage..."
+            jq '.volumes = [] | .containerDefinitions[0].mountPoints = []' \
+              task-definitions/medclinic-transcription.json > /tmp/transcription-td.json
+            mv /tmp/transcription-td.json task-definitions/medclinic-transcription.json
+          fi
 
       - name: Register task definitions
         run: |
