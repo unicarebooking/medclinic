@@ -75,6 +75,8 @@ async def _warmup_ollama():
         logger.info(f"Warming up Ollama model: {OLLAMA_MODEL}...")
         client = ollama.Client()
         client.generate(model=OLLAMA_MODEL, prompt="היי", stream=False)
+        logger.info("LLM model warmed up, pre-loading embedding model...")
+        embed_single("warmup")
         model_ready = True
         logger.info("Ollama model is ready.")
     except Exception as e:
