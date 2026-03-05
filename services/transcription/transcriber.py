@@ -10,9 +10,9 @@ from pathlib import Path
 class Transcriber:
     def __init__(
         self,
-        model_name: str = "Systran/faster-whisper-large-v3",
-        device: str = "auto",
-        compute_type: str = "auto",
+        model_name: str = "Systran/faster-whisper-medium",
+        device: str = "cpu",
+        compute_type: str = "int8",
     ):
         self.model_name = model_name
         self.device = device
