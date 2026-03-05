@@ -11,6 +11,7 @@ import ollama
 logger = logging.getLogger("rag_server")
 
 EMBEDDING_MODEL = os.environ.get("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
@@ -29,7 +30,7 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
         return []
 
     try:
-        client = ollama.Client()
+        client = ollama.Client(host=OLLAMA_HOST)
         response = client.embed(model=EMBEDDING_MODEL, input=texts)
         return response.embeddings
     except Exception as e:

@@ -43,6 +43,7 @@ logger = logging.getLogger("rag_server")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
     logger.warning(
@@ -68,20 +69,23 @@ app.add_middleware(
 
 
 async def _warmup_ollama():
-    """Pre-load the Ollama model into RAM on startup."""
+    """Pre-load the Ollama model into RAM on startup. Retries until Ollama is reachable."""
     global model_ready
     await asyncio.sleep(5)  # wait for server to fully initialize
-    try:
-        logger.info(f"Warming up Ollama model: {OLLAMA_MODEL}...")
-        client = ollama.Client()
-        client.generate(model=OLLAMA_MODEL, prompt="היי", stream=False)
-        logger.info("LLM model warmed up, pre-loading embedding model...")
-        embed_single("warmup")
-        model_ready = True
-        logger.info("Ollama model is ready.")
-    except Exception as e:
-        logger.error(f"Ollama warmup failed: {e}")
-        model_ready = False
+    attempt = 0
+    while not model_ready:
+        attempt += 1
+        try:
+            logger.info(f"Warming up Ollama model: {OLLAMA_MODEL} (attempt {attempt}, host: {OLLAMA_HOST})...")
+            client = ollama.Client(host=OLLAMA_HOST)
+            client.generate(model=OLLAMA_MODEL, prompt="היי", stream=False)
+            logger.info("LLM model warmed up, pre-loading embedding model...")
+            embed_single("warmup")
+            model_ready = True
+            logger.info("Ollama model is ready.")
+        except Exception as e:
+            logger.warning(f"Ollama warmup attempt {attempt} failed: {e}. Retrying in 30s...")
+            await asyncio.sleep(30)
 
 
 @app.on_event("startup")
@@ -200,7 +204,7 @@ def query_ollama(query: str, context: str) -> str:
 
 תשובה:"""
 
-    client = ollama.Client()
+    client = ollama.Client(host=OLLAMA_HOST)
     response = client.generate(
         model=OLLAMA_MODEL,
         prompt=prompt,
