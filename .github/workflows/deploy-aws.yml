@@ -185,7 +185,7 @@ jobs:
               --service-connect-configuration '{
                 "enabled": true,
                 "namespace": "'"$SC_NAMESPACE"'",
-                "services": [{"portName":"ollama","discoveryName":"ollama","clientAliases":[{"port":11434,"dnsName":"ollama.medclinic.local"}]}]
+                "services": [{"portName":"ollama","discoveryName":"ollama","clientAliases":[{"port":11434,"dnsName":"ollama.medclinic.local"}],"timeout":{"idleTimeoutSeconds":300,"perRequestTimeoutSeconds":300}}]
               }' \
               --force-new-deployment \
               --no-cli-pager
