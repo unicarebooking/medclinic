@@ -73,10 +73,31 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      return new Response(ragResponse.body, {
+      // Explicitly pump the stream chunk-by-chunk to avoid Next.js body buffering
+      const upstreamReader = ragResponse.body.getReader()
+      const readable = new ReadableStream({
+        async pull(controller) {
+          try {
+            const { done, value } = await upstreamReader.read()
+            if (done) {
+              controller.close()
+            } else {
+              controller.enqueue(value)
+            }
+          } catch {
+            controller.close()
+          }
+        },
+        cancel() {
+          upstreamReader.cancel()
+        },
+      })
+
+      return new Response(readable, {
         headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          'Connection': 'keep-alive',
           'X-Accel-Buffering': 'no',
         },
       })
