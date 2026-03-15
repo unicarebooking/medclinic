@@ -212,10 +212,6 @@ def query_ollama(query: str, context: str) -> str:
     response = client.generate(
         model=OLLAMA_MODEL,
         prompt=_build_rag_prompt(query, context),
-        options={
-            "temperature": 0.2,
-            "num_ctx": 2560,
-        },
     )
 
     return response.response.strip()
@@ -230,7 +226,6 @@ async def _stream_ollama_tokens(query: str, context: str):
         async for chunk in await client.generate(
             model=OLLAMA_MODEL,
             prompt=_build_rag_prompt(query, context),
-            options={"temperature": 0.2, "num_ctx": 4096},
             stream=True,
         ):
             # chunk is a GenerateResponse Pydantic model
