@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { query, top_k } = await request.json()
+    const { query, top_k, stream } = await request.json()
 
     if (!query || typeof query !== 'string' || !query.trim()) {
       return NextResponse.json(
@@ -45,19 +45,48 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Call RAG server - pass doctor_id directly (auth already verified above)
-    // 10 min timeout - Ollama on CPU can take several minutes
+    const ragBody = JSON.stringify({
+      query: query.trim(),
+      top_k: top_k || 10,
+      doctor_id: doctorId,
+    })
+
+    const ragHeaders = {
+      'Content-Type': 'application/json',
+      'X-Internal-Key': RAG_INTERNAL_KEY,
+    }
+
+    // --- Streaming path (SSE passthrough) ---
+    if (stream) {
+      const ragResponse = await fetch(`${RAG_SERVER_URL}/rag/query/stream`, {
+        method: 'POST',
+        headers: ragHeaders,
+        body: ragBody,
+        signal: AbortSignal.timeout(600000),
+      })
+
+      if (!ragResponse.ok || !ragResponse.body) {
+        const errorData = await ragResponse.json().catch(() => ({}))
+        return NextResponse.json(
+          { error: errorData.detail || 'שגיאה בשרת החיפוש החכם.' },
+          { status: ragResponse.status }
+        )
+      }
+
+      return new Response(ragResponse.body, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'X-Accel-Buffering': 'no',
+        },
+      })
+    }
+
+    // --- Non-streaming path (backwards-compatible JSON) ---
     const ragResponse = await fetch(`${RAG_SERVER_URL}/rag/query`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Internal-Key': RAG_INTERNAL_KEY,
-      },
-      body: JSON.stringify({
-        query: query.trim(),
-        top_k: top_k || 10,
-        doctor_id: doctorId,
-      }),
+      headers: ragHeaders,
+      body: ragBody,
       signal: AbortSignal.timeout(600000),
     })
 

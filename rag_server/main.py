@@ -12,6 +12,7 @@ Environment Variables:
 """
 
 import asyncio
+import json
 import os
 import logging
 from datetime import datetime
@@ -20,6 +21,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from supabase import create_client, Client
 import ollama
@@ -187,9 +189,8 @@ def build_context_from_chunks(chunks: list[dict]) -> tuple[str, list[RAGSource]]
     return "\n".join(context_parts), sources
 
 
-def query_ollama(query: str, context: str) -> str:
-    """Send query to Ollama with medical context."""
-    prompt = f"""אתה עוזר רפואי חכם. ענה על השאלה בהתבסס על המידע הרפואי הבא:
+def _build_rag_prompt(query: str, context: str) -> str:
+    return f"""אתה עוזר רפואי חכם. ענה על השאלה בהתבסס על המידע הרפואי הבא:
 
 {context}
 
@@ -204,10 +205,13 @@ def query_ollama(query: str, context: str) -> str:
 
 תשובה:"""
 
+
+def query_ollama(query: str, context: str) -> str:
+    """Send query to Ollama with medical context."""
     client = ollama.Client(host=OLLAMA_HOST)
     response = client.generate(
         model=OLLAMA_MODEL,
-        prompt=prompt,
+        prompt=_build_rag_prompt(query, context),
         options={
             "temperature": 0.2,
             "num_ctx": 2560,
@@ -215,6 +219,21 @@ def query_ollama(query: str, context: str) -> str:
     )
 
     return response.response.strip()
+
+
+async def _stream_ollama_tokens(query: str, context: str):
+    """Async generator — yields SSE lines for each Ollama token."""
+    client = ollama.AsyncClient(host=OLLAMA_HOST)
+    async for chunk in await client.generate(
+        model=OLLAMA_MODEL,
+        prompt=_build_rag_prompt(query, context),
+        options={"temperature": 0.2, "num_ctx": 2560},
+        stream=True,
+    ):
+        token = chunk.get("response", "")
+        if token:
+            yield f'data: {json.dumps({"type": "token", "text": token}, ensure_ascii=False)}\n\n'
+    yield f'data: {json.dumps({"type": "done"})}\n\n'
 
 
 # Routes
@@ -276,6 +295,57 @@ async def rag_query(request: RAGQueryRequest, raw_request: Request):
         sources=sources,
         total_summaries_scanned=len(chunks),
         model=OLLAMA_MODEL,
+    )
+
+
+@app.post("/rag/query/stream")
+async def rag_query_stream(request: RAGQueryRequest, raw_request: Request):
+    """Stream a RAG query response as Server-Sent Events (SSE).
+
+    Events:
+      sources  — sent immediately after vector search, contains sources + metadata
+      token    — one per Ollama output token
+      done     — stream complete
+      error    — on failure
+    """
+    verify_internal_key(raw_request)
+
+    doctor_id = request.doctor_id
+    logger.info(f"RAG stream query for doctor {doctor_id}: {request.query[:100]}")
+
+    async def event_generator():
+        # 1. Vector search (fast — embeddings only, no LLM)
+        try:
+            chunks = vector_search(request.query, doctor_id, request.top_k)
+        except Exception as e:
+            logger.error(f"Vector search error: {e}")
+            yield f'data: {json.dumps({"type": "error", "message": "שגיאה בחיפוש וקטורי. ודא ש-Ollama פעיל."}, ensure_ascii=False)}\n\n'
+            return
+
+        if not chunks:
+            yield f'data: {json.dumps({"type": "sources", "sources": [], "total_scanned": 0, "model": OLLAMA_MODEL}, ensure_ascii=False)}\n\n'
+            yield f'data: {json.dumps({"type": "token", "text": "לא נמצא מידע רלוונטי. יש ליצור סיכומי טיפול או תמלולים לפני שניתן לחפש בהם."}, ensure_ascii=False)}\n\n'
+            yield f'data: {json.dumps({"type": "done"})}\n\n'
+            return
+
+        context, sources = build_context_from_chunks(chunks)
+        sources_data = [{"patient_name": s.patient_name, "date": s.date} for s in sources]
+
+        # 2. Send sources immediately (before LLM starts)
+        yield f'data: {json.dumps({"type": "sources", "sources": sources_data, "total_scanned": len(chunks), "model": OLLAMA_MODEL}, ensure_ascii=False)}\n\n'
+
+        # 3. Stream LLM tokens
+        try:
+            async for sse_line in _stream_ollama_tokens(request.query, context):
+                yield sse_line
+        except Exception as e:
+            logger.error(f"Ollama stream error: {e}")
+            yield f'data: {json.dumps({"type": "error", "message": f"שגיאה בשרת ה-AI: {str(e)}"}, ensure_ascii=False)}\n\n'
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
