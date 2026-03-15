@@ -432,7 +432,9 @@ export default function DoctorDashboard() {
                         {(appointment.patient as any)?.full_name}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {format(new Date((appointment.slot as any)?.slot_datetime), 'HH:mm')} - {(appointment.slot as any)?.location?.name}
+                        {(appointment.slot as any)?.slot_datetime
+                          ? format(new Date((appointment.slot as any).slot_datetime), 'HH:mm')
+                          : '--:--'} - {(appointment.slot as any)?.location?.name}
                       </p>
                     </div>
                     <Badge

@@ -165,10 +165,10 @@ function AppointmentsContent() {
               </p>
               <div className="flex items-center gap-4 text-sm">
                 <span>
-                  📅 {format(new Date(slot?.slot_datetime), 'EEEE, d בMMMM yyyy', { locale: he })}
+                  📅 {slot?.slot_datetime ? format(new Date(slot.slot_datetime), 'EEEE, d בMMMM yyyy', { locale: he }) : 'תאריך לא זמין'}
                 </span>
                 <span>
-                  🕐 {format(new Date(slot?.slot_datetime), 'HH:mm')}
+                  🕐 {slot?.slot_datetime ? format(new Date(slot.slot_datetime), 'HH:mm') : '--:--'}
                 </span>
               </div>
               <p className="text-sm text-muted-foreground">

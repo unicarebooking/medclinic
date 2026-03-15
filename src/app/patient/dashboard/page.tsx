@@ -196,11 +196,13 @@ export default function PatientDashboard() {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {format(
-                        new Date((appointment.slot as any)?.slot_datetime),
-                        'EEEE, d בMMMM בשעה HH:mm',
-                        { locale: he }
-                      )}
+                      {(appointment.slot as any)?.slot_datetime
+                        ? format(
+                            new Date((appointment.slot as any).slot_datetime),
+                            'EEEE, d בMMMM בשעה HH:mm',
+                            { locale: he }
+                          )
+                        : 'תאריך לא זמין'}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       📍 {(appointment.slot as any)?.location?.name},{' '}
