@@ -222,22 +222,39 @@ def query_ollama(query: str, context: str) -> str:
 
 
 async def _stream_ollama_tokens(query: str, context: str):
-    """Async generator — yields SSE lines for each Ollama token.
-
-    chunk is an ollama.GenerateResponse (Pydantic model), not a dict.
-    Access fields with chunk.response, NOT chunk.get("response").
-    """
+    """Async generator — yields SSE lines for each Ollama token."""
+    logger.info(f"[OLLAMA] Starting generate call to {OLLAMA_HOST}, model={OLLAMA_MODEL}")
     client = ollama.AsyncClient(host=OLLAMA_HOST)
-    async for chunk in await client.generate(
-        model=OLLAMA_MODEL,
-        prompt=_build_rag_prompt(query, context),
-        options={"temperature": 0.2, "num_ctx": 2560},
-        stream=True,
-    ):
-        # chunk.response is the Pydantic attribute (not a dict key)
-        token = chunk.response if hasattr(chunk, "response") else (chunk.get("response", "") if isinstance(chunk, dict) else "")
-        if token:
-            yield f'data: {json.dumps({"type": "token", "text": token}, ensure_ascii=False)}\n\n'
+    token_count = 0
+    try:
+        async for chunk in await client.generate(
+            model=OLLAMA_MODEL,
+            prompt=_build_rag_prompt(query, context),
+            options={"temperature": 0.2, "num_ctx": 4096},
+            stream=True,
+        ):
+            # chunk is a GenerateResponse Pydantic model
+            if isinstance(chunk, dict):
+                token = chunk.get("response", "")
+                done = chunk.get("done", False)
+            else:
+                token = getattr(chunk, "response", "") or ""
+                done = getattr(chunk, "done", False)
+
+            if token:
+                token_count += 1
+                if token_count <= 3:
+                    logger.info(f"[OLLAMA] Token #{token_count}: {repr(token)}")
+                yield f'data: {json.dumps({"type": "token", "text": token}, ensure_ascii=False)}\n\n'
+
+            if done:
+                break
+
+    except Exception as e:
+        logger.error(f"[OLLAMA] generate exception: {e}", exc_info=True)
+        raise
+
+    logger.info(f"[OLLAMA] Generate complete, total tokens: {token_count}")
     yield f'data: {json.dumps({"type": "done"})}\n\n'
 
 

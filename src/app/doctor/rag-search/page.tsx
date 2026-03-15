@@ -258,7 +258,7 @@ export default function RAGSearchPage() {
           )}
 
           {/* Answer — streams in token by token */}
-          {streamingAnswer && (
+          {(streamingAnswer || streamDone) && (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -272,7 +272,9 @@ export default function RAGSearchPage() {
               </CardHeader>
               <CardContent>
                 <div className="whitespace-pre-wrap leading-relaxed text-base" dir="rtl">
-                  {streamingAnswer}
+                  {streamingAnswer || (streamDone ? (
+                    <span className="text-muted-foreground text-sm">המודל לא החזיר תשובה. ודא שהמודל פעיל ונסה שנית.</span>
+                  ) : null)}
                   {!streamDone && (
                     <span className="inline-block w-0.5 h-4 bg-current ml-0.5 animate-pulse align-middle" />
                   )}
