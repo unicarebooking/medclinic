@@ -222,7 +222,11 @@ def query_ollama(query: str, context: str) -> str:
 
 
 async def _stream_ollama_tokens(query: str, context: str):
-    """Async generator — yields SSE lines for each Ollama token."""
+    """Async generator — yields SSE lines for each Ollama token.
+
+    chunk is an ollama.GenerateResponse (Pydantic model), not a dict.
+    Access fields with chunk.response, NOT chunk.get("response").
+    """
     client = ollama.AsyncClient(host=OLLAMA_HOST)
     async for chunk in await client.generate(
         model=OLLAMA_MODEL,
@@ -230,7 +234,8 @@ async def _stream_ollama_tokens(query: str, context: str):
         options={"temperature": 0.2, "num_ctx": 2560},
         stream=True,
     ):
-        token = chunk.get("response", "")
+        # chunk.response is the Pydantic attribute (not a dict key)
+        token = chunk.response if hasattr(chunk, "response") else (chunk.get("response", "") if isinstance(chunk, dict) else "")
         if token:
             yield f'data: {json.dumps({"type": "token", "text": token}, ensure_ascii=False)}\n\n'
     yield f'data: {json.dumps({"type": "done"})}\n\n'
@@ -334,13 +339,36 @@ async def rag_query_stream(request: RAGQueryRequest, raw_request: Request):
         # 2. Send sources immediately (before LLM starts)
         yield f'data: {json.dumps({"type": "sources", "sources": sources_data, "total_scanned": len(chunks), "model": OLLAMA_MODEL}, ensure_ascii=False)}\n\n'
 
-        # 3. Stream LLM tokens
+        # 3. Stream LLM tokens with heartbeat to keep ALB connection alive
+        token_queue: asyncio.Queue = asyncio.Queue()
+
+        async def _produce():
+            try:
+                async for sse_line in _stream_ollama_tokens(request.query, context):
+                    await token_queue.put(("data", sse_line))
+            except Exception as e:
+                logger.error(f"Ollama stream error: {e}")
+                await token_queue.put(("error", str(e)))
+            finally:
+                await token_queue.put(("sentinel", None))
+
+        produce_task = asyncio.create_task(_produce())
         try:
-            async for sse_line in _stream_ollama_tokens(request.query, context):
-                yield sse_line
-        except Exception as e:
-            logger.error(f"Ollama stream error: {e}")
-            yield f'data: {json.dumps({"type": "error", "message": f"שגיאה בשרת ה-AI: {str(e)}"}, ensure_ascii=False)}\n\n'
+            while True:
+                try:
+                    kind, value = await asyncio.wait_for(token_queue.get(), timeout=20.0)
+                except asyncio.TimeoutError:
+                    # Send SSE comment as heartbeat — keeps ALB + browser connection alive
+                    yield ": keepalive\n\n"
+                    continue
+                if kind == "sentinel":
+                    break
+                if kind == "error":
+                    yield f'data: {json.dumps({"type": "error", "message": f"שגיאה בשרת ה-AI: {value}"}, ensure_ascii=False)}\n\n'
+                    break
+                yield value
+        finally:
+            produce_task.cancel()
 
     return StreamingResponse(
         event_generator(),
