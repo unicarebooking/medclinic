@@ -79,7 +79,7 @@ async def _warmup_ollama():
         attempt += 1
         try:
             logger.info(f"Warming up Ollama model: {OLLAMA_MODEL} (attempt {attempt}, host: {OLLAMA_HOST})...")
-            client = ollama.Client(host=OLLAMA_HOST)
+            client = ollama.Client(host=OLLAMA_HOST, timeout=300)
             client.generate(model=OLLAMA_MODEL, prompt="היי", stream=False)
             logger.info("LLM model warmed up, pre-loading embedding model...")
             embed_single("warmup")
@@ -208,7 +208,7 @@ def _build_rag_prompt(query: str, context: str) -> str:
 
 def query_ollama(query: str, context: str) -> str:
     """Send query to Ollama with medical context."""
-    client = ollama.Client(host=OLLAMA_HOST)
+    client = ollama.Client(host=OLLAMA_HOST, timeout=300)
     response = client.generate(
         model=OLLAMA_MODEL,
         prompt=_build_rag_prompt(query, context),
@@ -220,7 +220,7 @@ def query_ollama(query: str, context: str) -> str:
 async def _stream_ollama_tokens(query: str, context: str):
     """Async generator — yields SSE lines for each Ollama token."""
     logger.info(f"[OLLAMA] Starting generate call to {OLLAMA_HOST}, model={OLLAMA_MODEL}")
-    client = ollama.AsyncClient(host=OLLAMA_HOST)
+    client = ollama.AsyncClient(host=OLLAMA_HOST, timeout=300)
     token_count = 0
     try:
         async for chunk in await client.generate(
