@@ -25,6 +25,10 @@
         {
           "name": "OLLAMA_KEEP_ALIVE",
           "value": "24h"
+        },
+        {
+          "name": "OLLAMA_CONTEXT_LENGTH",
+          "value": "4096"
         }
       ],
       "mountPoints": [],
