@@ -1,6 +1,6 @@
 """
-Embedding module using Ollama's nomic-embed-text model.
-Produces 768-dimensional vectors for text chunks.
+Embedding module using Ollama's qwen3-embedding:0.6b model.
+Produces 1024-dimensional vectors for text chunks.
 """
 
 import os
@@ -10,7 +10,7 @@ import ollama
 
 logger = logging.getLogger("rag_server")
 
-EMBEDDING_MODEL = os.environ.get("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
+EMBEDDING_MODEL = os.environ.get("OLLAMA_EMBEDDING_MODEL", "qwen3-embedding:0.6b")
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 
 
@@ -21,7 +21,7 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
         texts: List of text strings to embed.
 
     Returns:
-        List of embedding vectors (each 768 floats).
+        List of embedding vectors (each 1024 floats for qwen3-embedding:0.6b).
 
     Raises:
         RuntimeError: If embedding fails.
@@ -45,7 +45,7 @@ def embed_single(text: str) -> list[float]:
         text: Text to embed.
 
     Returns:
-        Embedding vector (768 floats).
+        Embedding vector (1024 floats for qwen3-embedding:0.6b).
     """
     results = embed_texts([text])
     return results[0]

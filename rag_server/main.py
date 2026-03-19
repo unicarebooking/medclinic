@@ -1,14 +1,14 @@
 """
 RAG Server - Medical Document Search with Ollama + pgvector
 
-Uses vector embeddings (nomic-embed-text) for semantic search
+Uses vector embeddings (qwen3-embedding:0.6b) for semantic search
 and Ollama LLM (llama3.2:3b) for answer generation.
 
 Environment Variables:
   SUPABASE_URL              - Supabase project URL
   SUPABASE_SERVICE_KEY      - Supabase service role key (also used as internal API key)
   OLLAMA_MODEL              - Ollama LLM model (default: llama3.2:3b)
-  OLLAMA_EMBEDDING_MODEL    - Ollama embedding model (default: nomic-embed-text)
+  OLLAMA_EMBEDDING_MODEL    - Ollama embedding model (default: qwen3-embedding:0.6b)
 """
 
 import asyncio
@@ -281,7 +281,7 @@ async def rag_query(request: RAGQueryRequest, raw_request: Request):
         logger.error(f"Vector search error: {e}")
         raise HTTPException(
             status_code=503,
-            detail="שגיאה בחיפוש וקטורי. ודא ש-Ollama פעיל ושמודל nomic-embed-text הותקן.",
+            detail="שגיאה בחיפוש וקטורי. ודא ש-Ollama פעיל ושמודל qwen3-embedding:0.6b הותקן.",
         )
 
     if not chunks:

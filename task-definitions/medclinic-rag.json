@@ -40,7 +40,7 @@
         },
         {
           "name": "OLLAMA_EMBEDDING_MODEL",
-          "value": "nomic-embed-text"
+          "value": "qwen3-embedding:0.6b"
         }
       ],
       "mountPoints": [],

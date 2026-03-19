@@ -4,7 +4,7 @@ FROM ollama/ollama:latest
 RUN nohup ollama serve > /dev/null 2>&1 & \
     sleep 5 && \
     ollama pull llama3.2:3b && \
-    ollama pull nomic-embed-text && \
+    ollama pull qwen3-embedding:0.6b && \
     pkill ollama || true
 
 EXPOSE 11434
