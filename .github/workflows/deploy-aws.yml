@@ -165,7 +165,7 @@ jobs:
             --service-connect-configuration '{
               "enabled": true,
               "namespace": "'"$SC_NAMESPACE"'",
-              "services": [{"portName":"rag","discoveryName":"rag","clientAliases":[{"port":8001,"dnsName":"rag.medclinic.local"}]}]
+              "services": [{"portName":"rag","discoveryName":"rag","clientAliases":[{"port":8001,"dnsName":"rag.medclinic.local"}],"timeout":{"idleTimeoutSeconds":600,"perRequestTimeoutSeconds":600}}]
             }' \
             --force-new-deployment \
             --no-cli-pager
