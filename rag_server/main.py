@@ -98,7 +98,7 @@ async def startup_event():
 # Models
 class RAGQueryRequest(BaseModel):
     query: str
-    top_k: int = 5
+    top_k: int = 3
     doctor_id: str
 
 
@@ -138,7 +138,7 @@ def verify_internal_key(request: Request) -> None:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-def vector_search(query: str, doctor_id: str, top_k: int = 10) -> list[dict]:
+def vector_search(query: str, doctor_id: str, top_k: int = 3) -> list[dict]:
     """Embed the query and search document_chunks via pgvector."""
     query_embedding = embed_single(query)
 
@@ -201,7 +201,7 @@ def _build_rag_prompt(query: str, context: str) -> str:
 2. התבסס רק על המידע שסופק
 3. אם אין מידע - אמר זאת
 4. ציין שמות מטופלים ותאריכים רלוונטיים
-5. תשובה קצרה ומדויקת (2-4 משפטים)
+5. תשובה קצרה ומדויקת (משפט אחד עד שניים בלבד)
 
 תשובה:"""
 
