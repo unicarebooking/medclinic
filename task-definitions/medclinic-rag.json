@@ -36,7 +36,7 @@
         },
         {
           "name": "OLLAMA_MODEL",
-          "value": "llama3.2:3b"
+          "value": "qwen2.5:1.5b"
         },
         {
           "name": "OLLAMA_EMBEDDING_MODEL",

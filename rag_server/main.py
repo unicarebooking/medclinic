@@ -2,12 +2,12 @@
 RAG Server - Medical Document Search with Ollama + pgvector
 
 Uses vector embeddings (qwen3-embedding:0.6b) for semantic search
-and Ollama LLM (llama3.2:3b) for answer generation.
+and Ollama LLM (qwen2.5:1.5b) for answer generation.
 
 Environment Variables:
   SUPABASE_URL              - Supabase project URL
   SUPABASE_SERVICE_KEY      - Supabase service role key (also used as internal API key)
-  OLLAMA_MODEL              - Ollama LLM model (default: llama3.2:3b)
+  OLLAMA_MODEL              - Ollama LLM model (default: qwen2.5:1.5b)
   OLLAMA_EMBEDDING_MODEL    - Ollama embedding model (default: qwen3-embedding:0.6b)
 """
 
@@ -44,7 +44,7 @@ logger = logging.getLogger("rag_server")
 # Environment
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:1.5b")
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
