@@ -56,6 +56,7 @@ export default function RAGSearchPage() {
     setStreamingSources(null)
     setStreamingMeta(null)
     setStreamDone(false)
+    let receivedDone = false
 
     try {
       const res = await fetch('/api/rag/query', {
@@ -93,6 +94,7 @@ export default function RAGSearchPage() {
             } else if (event.type === 'token') {
               setStreamingAnswer(prev => prev + event.text)
             } else if (event.type === 'done') {
+              receivedDone = true
               setStreamDone(true)
             } else if (event.type === 'error') {
               setError(event.message)
@@ -104,7 +106,9 @@ export default function RAGSearchPage() {
       }
       setStreamDone(true)
     } catch {
-      setError('שגיאה בהתחברות לשרת החיפוש. ודא שהשרת פעיל.')
+      if (!receivedDone) {
+        setError('שגיאה בהתחברות לשרת החיפוש. ודא שהשרת פעיל.')
+      }
     } finally {
       setIsLoading(false)
     }
